@@ -554,43 +554,42 @@
             }
         }
 
-        // 检查并修复表结构
-        async function checkAndFixTableStructure() {
+// 检查并修复表结构（最终稳定版）
+async function checkAndFixTableStructure() {
     try {
-        // 1. 使用更可靠的方式检查表是否存在
-        const { data, error } = await window.supabase
+        // 1. 直接查询测试（最可靠方式）
+        const { error } = await window.supabase
             .from('bin_records')
             .select('bin')
             .limit(1)
             .single();
 
-        // 2. 表不存在时的处理（错误代码42P01=表不存在）
+        // 2. 处理表不存在的情况
         if (error?.code === '42P01') {
-            console.log('正在自动创建数据库表...');
+            console.log('[DB] 正在创建表结构...');
             const { error: createError } = await window.supabase.rpc('create_bin_tables');
             if (createError) throw createError;
-            console.log('表创建成功');
             return true;
         }
         if (error) throw error;
 
-        // 3. 检查主键约束（使用实测通过的替代方案）
-        console.log('正在验证表结构完整性...');
-        const { data: validation, error: validationError } = await window.supabase
-            .rpc('validate_table_structure');
+        // 3. 验证表结构（使用新版验证逻辑）
+        console.log('[DB] 验证表结构中...');
+        const { data: validation, error: vError } = await window.supabase
+            .rpc('validate_table_structure')
+            .single();
         
-        if (validationError) throw validationError;
-        
-        if (!validation?.is_valid) {
-            console.log('检测到表结构异常，正在修复...');
-            const { error: repairError } = await window.supabase.rpc('repair_table_structure');
-            if (repairError) throw repairError;
+        if (vError) throw new Error(`验证失败: ${vError.message}`);
+        if (!validation?.has_pkey || !validation?.has_columns) {
+            console.log('[DB] 检测到结构问题，自动修复中...');
+            const { error: rError } = await window.supabase.rpc('repair_table_structure');
+            if (rError) throw rError;
         }
 
         return true;
     } catch (error) {
-        console.error('数据库初始化失败:', error);
-        throw new Error(`数据库初始化失败: ${error.message}`);
+        console.error('[DB] 初始化失败:', error);
+        throw new Error(`数据库错误: ${error.message.replace('Uncaught error: ', '')}`);
     }
 }
 
