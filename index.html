@@ -87,7 +87,7 @@
             border-radius: 4px;
             border: 1px solid transparent;
             font-size: 13px;
-            font-weight: 5 00;
+            font-weight: 500;
         }
         
         .statusBtn.active {
@@ -350,6 +350,16 @@
             min-width: 80px;
         }
         
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(20px); }
+        }
+        
         @media (max-width: 768px) {
             #entryForm {
                 grid-template-columns: 1fr;
@@ -438,312 +448,312 @@
         </div>
     </div>
 
-<script>
-    // 配置
-    const IINAPI_KEY = "MlIDgiUwEvuMWgK6ok4h9msL9O7DsZm0";
-    
-    // 数据
-    let records = [];
-    let metaCache = {};
-    let currentStatus = '';
-    let sortConfig = { key: null, direction: 'asc' };
-    
-    // 卡组织图标
-    const schemeIcons = {
-        'VISA': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/2560px-Visa_Inc._logo.svg.png',
-        'MASTERCARD': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Mastercard-logo.svg/1280px-Mastercard-logo.svg.png',
-        'AMEX': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/American_Express_logo.svg/1200px-American_Express_logo.svg.png',
-        'AMERICAN EXPRESS': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/American_Express_logo.svg/1200px-American_Express_logo.svg.png',
-        'UNIONPAY': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/UnionPay_logo.svg/1200px-UnionPay_logo.svg.png',
-        'JCB': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/JCB_logo.svg/1200px-JCB_logo.svg.png',
-        'DISCOVER': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Discover_Card_logo.svg/1280px-Discover_Card_logo.svg.png'
-    };
+    <script>
+        // 配置
+        const IINAPI_KEY = "MlIDgiUwEvuMWgK6ok4h9msL9O7DsZm0";
+        
+        // 数据
+        let records = [];
+        let metaCache = {};
+        let currentStatus = '';
+        let sortConfig = { key: null, direction: 'asc' };
+        
+        // 卡组织图标
+        const schemeIcons = {
+            'VISA': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/2560px-Visa_Inc._logo.svg.png',
+            'MASTERCARD': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Mastercard-logo.svg/1280px-Mastercard-logo.svg.png',
+            'AMEX': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/American_Express_logo.svg/1200px-American_Express_logo.svg.png',
+            'AMERICAN EXPRESS': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/American_Express_logo.svg/1200px-American_Express_logo.svg.png',
+            'UNIONPAY': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/UnionPay_logo.svg/1200px-UnionPay_logo.svg.png',
+            'JCB': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/JCB_logo.svg/1200px-JCB_logo.svg.png',
+            'DISCOVER': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Discover_Card_logo.svg/1280px-Discover_Card_logo.svg.png'
+        };
 
-    // 初始化
-    document.addEventListener('DOMContentLoaded', async () => {
-        try {
-            // 1. 检查表结构并自动修复
-            await checkAndFixTableStructure();
-            
-            // 2. 加载数据
-            await loadRecords();
-            initStatusButtons();
-            initForm();
-            initSearch();
-            initTableSorting();
-            initModal();
-            updateTable();
-            updateBinCount();
-        } catch (e) {
-            console.error('初始化失败:', e);
-            alert('系统初始化异常: ' + e.message);
-        }
-    });
-
-    // 表结构检查和修复
-    async function checkAndFixTableStructure() {
-        try {
-            // 检查表是否存在
-            const { data: tableExists, error: tableError } = await window.supabase
-                .rpc('table_exists', { table_name: 'bin_records' });
-            
-            if (tableError || !tableExists) {
-                await createTables();
-                return;
-            }
-
-            // 检查缺失字段并自动添加
-            const requiredColumns = [
-                { name: 'scheme', type: 'text', default: '未知' },
-                { name: 'brand', type: 'text', default: '未知' },
-                { name: 'risk_desc', type: 'text', default: '未知' },
-                { name: 'risk_note', type: 'text', default: '' }
-            ];
-
-            for (const col of requiredColumns) {
-                const { data: colExists } = await window.supabase
-                    .rpc('column_exists', { 
-                        table_name: 'bin_records',
-                        column_name: col.name 
-                    });
+        // 初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // 1. 检查表结构并自动修复
+                await checkAndFixTableStructure();
                 
-                if (!colExists) {
-                    await window.supabase.rpc('add_column', {
-                        table_name: 'bin_records',
-                        column_name: col.name,
-                        column_type: col.type,
-                        default_value: col.default
-                    });
-                    console.log(`已添加缺失字段: ${col.name}`);
-                }
+                // 2. 加载数据
+                await loadRecords();
+                initStatusButtons();
+                initForm();
+                initSearch();
+                initTableSorting();
+                initModal();
+                updateTable();
+                updateBinCount();
+            } catch (e) {
+                console.error('初始化失败:', e);
+                alert('系统初始化异常: ' + e.message);
             }
-        } catch (error) {
-            console.error('表结构检查失败:', error);
-            throw new Error('表结构自动修复失败，请手动添加缺失字段');
-        }
-    }
+        });
 
-    // 创建表（带所有必需字段）
-    async function createTables() {
-        await window.supabase.rpc('create_bin_tables');
-        console.log('表创建完成');
-    }
-
-    // 加载记录（带字段兼容处理）
-    async function loadRecords() {
-        try {
-            // 1. 加载主记录
-            const { data, error } = await window.supabase
-                .from('bin_records')
-                .select('*');
-            
-            if (error) throw error;
-            
-            // 2. 字段兼容处理
-            records = (data || []).map(record => ({
-                ...record,
-                // 确保所有字段都有默认值
-                bank_name: record.bank_name || '未知',
-                card_type: record.card_type || '未知',
-                scheme: record.scheme || '未知',
-                brand: record.brand || '未知',
-                risk_desc: record.risk_desc || '未知',
-                risk_note: record.risk_note || '',
-                // 兼容旧版time字段
-                created_at: record.created_at || record.time || new Date().toISOString()
-            }));
-            
-            // 3. 加载元数据
-            const { data: metaData } = await window.supabase
-                .from('bin_metadata')
-                .select('*');
-            
-            metaCache = metaData?.reduce((acc, item) => {
-                acc[item.bin] = item.data;
-                return acc;
-            }, {}) || {};
-            
-        } catch (error) {
-            console.error('加载记录失败:', error);
-            throw new Error('加载记录失败: ' + error.message);
-        }
-    }
-
-    // 保存记录（优化版）
-    async function saveRecords() {
-        const saveBtn = document.getElementById('saveBtn');
-        try {
-            // 1. 设置按钮状态
-            saveBtn.disabled = true;
-            saveBtn.textContent = '保存中...';
-
-            // 2. 准备数据（带验证）
-            const recordsToSave = records.map(record => {
-                if (!record.bin || !record.status) {
-                    throw new Error(`记录 ${JSON.stringify(record)} 缺少必要字段`);
-                }
+        // 表结构检查和修复
+        async function checkAndFixTableStructure() {
+            try {
+                // 检查表是否存在
+                const { data: tableExists, error: tableError } = await window.supabase
+                    .rpc('table_exists', { table_name: 'bin_records' });
                 
-                return {
-                    bin: record.bin.padStart(6, '0').slice(0, 6), // 标准化BIN格式
-                    status: record.status,
-                    bank_name: record.bank_name || '未知银行',
-                    card_type: record.card_type || '未知类型',
-                    operator: record.operator || '匿名用户',
-                    note: record.note || '',
-                    created_at: record.created_at || new Date().toISOString(),
-                    scheme: record.scheme || '未知组织',
-                    brand: record.brand || '标准卡',
-                    risk_desc: record.risk_desc || '未知风险',
-                    risk_note: record.risk_note || '',
-                    ...(record.amount && { amount: record.amount })
-                };
-            });
-
-            // 3. 执行保存（带重试机制）
-            let retries = 3;
-            let lastError = null;
-            
-            while (retries > 0) {
-                try {
-                    const { error } = await window.supabase
-                        .from('bin_records')
-                        .upsert(recordsToSave, { 
-                            onConflict: 'bin',
-                            returning: 'minimal'
-                        });
-
-                    if (error) throw error;
-                    
-                    // 成功时退出重试循环
-                    updateTable();
-                    showToast('保存成功！');
+                if (tableError || !tableExists) {
+                    await createTables();
                     return;
+                }
+
+                // 检查缺失字段并自动添加
+                const requiredColumns = [
+                    { name: 'scheme', type: 'text', default: '未知' },
+                    { name: 'brand', type: 'text', default: '未知' },
+                    { name: 'risk_desc', type: 'text', default: '未知' },
+                    { name: 'risk_note', type: 'text', default: '' }
+                ];
+
+                for (const col of requiredColumns) {
+                    const { data: colExists } = await window.supabase
+                        .rpc('column_exists', { 
+                            table_name: 'bin_records',
+                            column_name: col.name 
+                        });
                     
-                } catch (error) {
-                    lastError = error;
-                    retries--;
-                    if (retries > 0) {
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    if (!colExists) {
+                        await window.supabase.rpc('add_column', {
+                            table_name: 'bin_records',
+                            column_name: col.name,
+                            column_type: col.type,
+                            default_value: col.default
+                        });
+                        console.log(`已添加缺失字段: ${col.name}`);
                     }
                 }
+            } catch (error) {
+                console.error('表结构检查失败:', error);
+                throw new Error('表结构自动修复失败，请手动添加缺失字段');
             }
-            
-            // 重试失败后抛出最后错误
-            throw lastError;
-
-        } catch (error) {
-            console.error('保存失败:', error);
-            
-            const errorMsg = error.message.includes('network') 
-                ? '网络连接失败，请检查网络后重试'
-                : error.message.includes('存在') 
-                ? '数据冲突，请刷新页面后重试'
-                : error.message;
-            
-            showToast(`保存失败: ${errorMsg}`, true);
-            throw error;
-        } finally {
-            // 恢复按钮状态
-            saveBtn.disabled = false;
-            saveBtn.textContent = '添加记录';
         }
-    }
 
-    // 显示提示（优化版）
-    function showToast(message, isError = false) {
-        const toast = document.createElement('div');
-        toast.style = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px;
-            background: ${isError ? '#F44336' : '#4CAF50'};
-            color: white;
-            border-radius: 4px;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            animation: fadeIn 0.3s;
-        `;
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.style.animation = 'fadeOut 0.3s';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
-    }
+        // 创建表（带所有必需字段）
+        async function createTables() {
+            await window.supabase.rpc('create_bin_tables');
+            console.log('表创建完成');
+        }
 
-    // 初始化状态按钮
-    function initStatusButtons() {
-        document.querySelectorAll('.statusBtn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('.statusBtn').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                currentStatus = this.dataset.status;
-            });
-        });
-    }
-
-    // 初始化表单（优化版）
-    function initForm() {
-        document.getElementById('entryForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const bin = document.getElementById('binInput').value.trim();
-            if (!/^\d{6}$/.test(bin)) {
-                showToast('请输入6位数字BIN', true);
-                return;
-            }
-            
-            if (!currentStatus) {
-                showToast('请选择状态', true);
-                return;
-            }
-            
-            const operator = document.getElementById('operatorInput').value.trim() || '匿名';
-            const note = document.getElementById('noteInput').value.trim();
-            const amount = document.getElementById('amountInput').value.trim();
-            
-            const newRecord = {
-                bin,
-                status: currentStatus,
-                bank_name: '查询中...',
-                card_type: '查询中...',
-                operator,
-                note,
-                ...(amount && { amount }),
-                created_at: new Date().toISOString(),
-                scheme: '查询中...',
-                brand: '查询中...',
-                risk_desc: '查询中...',
-                risk_note: ''
-            };
-            
+        // 加载记录（带字段兼容处理）
+        async function loadRecords() {
             try {
-                // 1. 添加临时记录
-                records.push(newRecord);
-                updateTable();
-                showToast('正在保存记录...');
+                // 1. 加载主记录
+                const { data, error } = await window.supabase
+                    .from('bin_records')
+                    .select('*');
                 
-                // 2. 获取元数据
-                const meta = await fetchMetadata(bin, true);
-                Object.assign(newRecord, {
-                    bank_name: meta.bankName,
-                    card_type: meta.cardType,
-                    scheme: meta.scheme,
-                    brand: meta.brand,
-                    risk_desc: meta.riskDesc
-                });
+                if (error) throw error;
                 
-                // 3. 保存完整记录
-                await saveRecords();
+                // 2. 字段兼容处理
+                records = (data || []).map(record => ({
+                    ...record,
+                    // 确保所有字段都有默认值
+                    bank_name: record.bank_name || '未知',
+                    card_type: record.card_type || '未知',
+                    scheme: record.scheme || '未知',
+                    brand: record.brand || '未知',
+                    risk_desc: record.risk_desc || '未知',
+                    risk_note: record.risk_note || '',
+                    // 兼容旧版time字段
+                    created_at: record.created_at || record.time || new Date().toISOString()
+                }));
                 
-                // 4. 重置表单
-                this.reset();
-                currentStatus = '';
-                document.querySelectorAll('.statusBtn').forEach(b => b.classList.remove('active'));
+                // 3. 加载元数据
+                const { data: metaData } = await window.supabase
+                    .from('bin_metadata')
+                    .select('*');
+                
+                metaCache = metaData?.reduce((acc, item) => {
+                    acc[item.bin] = item.data;
+                    return acc;
+                }, {}) || {};
                 
             } catch (error) {
+                console.error('加载记录失败:', error);
+                throw new Error('加载记录失败: ' + error.message);
+            }
+        }
+
+        // 保存记录（优化版）
+        async function saveRecords() {
+            const saveBtn = document.getElementById('saveBtn');
+            try {
+                // 1. 设置按钮状态
+                saveBtn.disabled = true;
+                saveBtn.textContent = '保存中...';
+
+                // 2. 准备数据（带验证）
+                const recordsToSave = records.map(record => {
+                    if (!record.bin || !record.status) {
+                        throw new Error(`记录 ${JSON.stringify(record)} 缺少必要字段`);
+                    }
+                    
+                    return {
+                        bin: record.bin.padStart(6, '0').slice(0, 6), // 标准化BIN格式
+                        status: record.status,
+                        bank_name: record.bank_name || '未知银行',
+                        card_type: record.card_type || '未知类型',
+                        operator: record.operator || '匿名用户',
+                        note: record.note || '',
+                        created_at: record.created_at || new Date().toISOString(),
+                        scheme: record.scheme || '未知组织',
+                        brand: record.brand || '标准卡',
+                        risk_desc: record.risk_desc || '未知风险',
+                        risk_note: record.risk_note || '',
+                        ...(record.amount && { amount: record.amount })
+                    };
+                });
+
+                // 3. 执行保存（带重试机制）
+                let retries = 3;
+                let lastError = null;
+                
+                while (retries > 0) {
+                    try {
+                        const { error } = await window.supabase
+                            .from('bin_records')
+                            .upsert(recordsToSave, { 
+                                onConflict: 'bin',
+                                returning: 'minimal'
+                            });
+
+                        if (error) throw error;
+                        
+                        // 成功时退出重试循环
+                        updateTable();
+                        showToast('保存成功！');
+                        return;
+                        
+                    } catch (error) {
+                        lastError = error;
+                        retries--;
+                        if (retries > 0) {
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+                    }
+                }
+                
+                // 重试失败后抛出最后错误
+                throw lastError;
+
+            } catch (error) {
+                console.error('保存失败:', error);
+                
+                const errorMsg = error.message.includes('network') 
+                    ? '网络连接失败，请检查网络后重试'
+                    : error.message.includes('存在') 
+                    ? '数据冲突，请刷新页面后重试'
+                    : error.message;
+                
+                showToast(`保存失败: ${errorMsg}`, true);
+                throw error;
+            } finally {
+                // 恢复按钮状态
+                saveBtn.disabled = false;
+                saveBtn.textContent = '添加记录';
+            }
+        }
+
+        // 显示提示（优化版）
+        function showToast(message, isError = false) {
+            const toast = document.createElement('div');
+            toast.style = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px;
+                background: ${isError ? '#F44336' : '#4CAF50'};
+                color: white;
+                border-radius: 4px;
+                z-index: 1000;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                animation: fadeIn 0.3s;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // 初始化状态按钮
+        function initStatusButtons() {
+            document.querySelectorAll('.statusBtn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.statusBtn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentStatus = this.dataset.status;
+                });
+            });
+        }
+
+        // 初始化表单（优化版）
+        function initForm() {
+            document.getElementById('entryForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const bin = document.getElementById('binInput').value.trim();
+                if (!/^\d{6}$/.test(bin)) {
+                    showToast('请输入6位数字BIN', true);
+                    return;
+                }
+                
+                if (!currentStatus) {
+                    showToast('请选择状态', true);
+                    return;
+                }
+                
+                const operator = document.getElementById('operatorInput').value.trim() || '匿名';
+                const note = document.getElementById('noteInput').value.trim();
+                const amount = document.getElementById('amountInput').value.trim();
+                
+                const newRecord = {
+                    bin,
+                    status: currentStatus,
+                    bank_name: '查询中...',
+                    card_type: '查询中...',
+                    operator,
+                    note,
+                    ...(amount && { amount }),
+                    created_at: new Date().toISOString(),
+                    scheme: '查询中...',
+                    brand: '查询中...',
+                    risk_desc: '查询中...',
+                    risk_note: ''
+                };
+                
+                try {
+                    // 1. 添加临时记录
+                    records.push(newRecord);
+                    updateTable();
+                    showToast('正在保存记录...');
+                    
+                    // 2. 获取元数据
+                    const meta = await fetchMetadata(bin, true);
+                    Object.assign(newRecord, {
+                        bank_name: meta.bankName,
+                        card_type: meta.cardType,
+                        scheme: meta.scheme,
+                        brand: meta.brand,
+                        risk_desc: meta.riskDesc
+                    });
+                    
+                    // 3. 保存完整记录
+                    await saveRecords();
+                    
+                    // 4. 重置表单
+                    this.reset();
+                    currentStatus = '';
+                    document.querySelectorAll('.statusBtn').forEach(b => b.classList.remove('active'));
+                    
+                } catch (error) {
                 console.error('提交失败:', error);
                 // 从记录中移除失败的条目
                 records = records.filter(r => r !== newRecord);
@@ -1016,115 +1026,101 @@
 
     // 显示BIN详情
     function showBinDetails(bin) {
-    const modal = document.getElementById('detailModal');
-    const modalContent = document.getElementById('modalContent');
-    const binRecords = records.filter(r => r.bin === bin).sort((a, b) => 
-        new Date(b.created_at) - new Date(a.created_at));
-    
-    const stats = {
-        success: binRecords.filter(r => r.status === '成功').length,
-        fail: binRecords.filter(r => r.status === '失败').length,
-        warning: binRecords.filter(r => r.status === '异常').length
-    };
-    
-    document.getElementById('modalTitle').innerHTML = `
-        BIN ${bin} 详情 <small>(成功 ${stats.success}条, 失败 ${stats.fail}条, 异常 ${stats.warning}条)</small>
-    `;
-    
-    let content = `
-        <div style="margin-bottom: 20px;">
-            <strong>银行:</strong> ${binRecords[0].bank_name}<br>
-            <strong>卡组织:</strong> ${binRecords[0].scheme}<br>
-            <strong>卡类型:</strong> ${binRecords[0].card_type}<br>
-            <strong>地区信息:</strong> ${binRecords[0].risk_desc}<br>
-            <strong>风控备注:</strong> ${binRecords[0].risk_note || '无'}
-        </div>
-        <table class="detail-table">
-            <thead>
-                <tr>
-                    <th>时间</th>
-                    <th>状态</th>
-                    <th>操作人</th>
-                    <th>金额</th>
-                    <th>备注</th>
-                    <th>操作</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-    
-    binRecords.forEach(record => {
-        const date = new Date(record.created_at).toLocaleString();
-        const statusClass = record.status === '成功' ? 'success-badge' : 
-                          record.status === '失败' ? 'fail-badge' : 'warning-badge';
+        const modal = document.getElementById('detailModal');
+        const modalContent = document.getElementById('modalContent');
+        const binRecords = records.filter(r => r.bin === bin).sort((a, b) => 
+            new Date(b.created_at) - new Date(a.created_at));
         
-        content += `
-            <tr>
-                <td>${date}</td>
-                <td><span class="status-badge ${statusClass}">${record.status}</span></td>
-                <td>${record.operator}</td>
-                <td>${record.amount || '-'}</td>
-                <td>${record.note || '-'}</td>
-                <td><button class="primary-btn" style="padding: 3px 8px; font-size: 12px;" 
-                      onclick="deleteRecord('${record.id || record.created_at}')">删除</button></td>
-            </tr>
+        const stats = {
+            success: binRecords.filter(r => r.status === '成功').length,
+            fail: binRecords.filter(r => r.status === '失败').length,
+            warning: binRecords.filter(r => r.status === '异常').length
+        };
+        
+        document.getElementById('modalTitle').innerHTML = `
+            BIN ${bin} 详情 <small>(成功 ${stats.success}条, 失败 ${stats.fail}条, 异常 ${stats.warning}条)</small>
         `;
-    });
-    
-    content += `
-            </tbody>
-        </table>
-    `;
-    
-    modalContent.innerHTML = content;
-    modal.style.display = 'block';
-}
+        
+        let content = `
+            <div style="margin-bottom: 20px;">
+                <strong>银行:</strong> ${binRecords[0].bank_name}<br>
+                <strong>卡组织:</strong> ${binRecords[0].scheme}<br>
+                <strong>卡类型:</strong> ${binRecords[0].card_type}<br>
+                <strong>地区信息:</strong> ${binRecords[0].risk_desc}<br>
+                <strong>风控备注:</strong> ${binRecords[0].risk_note || '无'}
+            </div>
+            <table class="detail-table">
+                <thead>
+                    <tr>
+                        <th>时间</th>
+                        <th>状态</th>
+                        <th>操作人</th>
+                        <th>金额</th>
+                        <th>备注</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>`;
 
-// 删除记录函数
-async function deleteRecord(recordId) {
-    if (!confirm('确定要删除这条记录吗？')) return;
-    
-    try {
-        // 尝试通过id删除
-        const { error } = await window.supabase
-            .from('bin_records')
-            .delete()
-            .or(`id.eq.${recordId},and(created_at.eq.${recordId})`);
-        
-        if (error) throw error;
-        
-        // 更新本地数据
-        records = records.filter(r => 
-            (r.id && r.id.toString() !== recordId) || 
-            (!r.id && r.created_at !== recordId)
-        );
-        
-        updateTable();
-        showToast('删除成功');
-        document.getElementById('detailModal').style.display = 'none';
-    } catch (error) {
-        console.error('删除失败:', error);
-        showToast('删除失败: ' + error.message, true);
+        binRecords.forEach(record => {
+            const date = new Date(record.created_at).toLocaleString();
+            const statusClass = record.status === '成功' ? 'success-badge' : 
+                              record.status === '失败' ? 'fail-badge' : 'warning-badge';
+            
+            content += `
+                <tr>
+                    <td>${date}</td>
+                    <td><span class="status-badge ${statusClass}">${record.status}</span></td>
+                    <td>${record.operator}</td>
+                    <td>${record.amount || '-'}</td>
+                    <td>${record.note || '-'}</td>
+                    <td><button class="primary-btn" style="padding: 3px 8px; font-size: 12px;" 
+                          onclick="deleteRecord('${record.id || record.created_at}')">删除</button></td>
+                </tr>`;
+        });
+
+        content += `
+                </tbody>
+            </table>`;
+
+        modalContent.innerHTML = content;
+        modal.style.display = 'block';
     }
-}
 
-<!-- 全局函数导出 -->
-<script>
+    // 删除记录函数
+    async function deleteRecord(recordId) {
+        if (!confirm('确定要删除这条记录吗？')) return;
+        
+        try {
+            const { error } = await window.supabase
+                .from('bin_records')
+                .delete()
+                .or(`id.eq.${recordId},and(created_at.eq.${recordId})`);
+            
+            if (error) throw error;
+            
+            records = records.filter(r => 
+                (r.id && r.id.toString() !== recordId) || 
+                (!r.id && r.created_at !== recordId)
+            );
+            
+            updateTable();
+            showToast('删除成功');
+            document.getElementById('detailModal').style.display = 'none';
+        } catch (error) {
+            console.error('删除失败:', error);
+            showToast('删除失败: ' + error.message, true);
+        }
+    }
+
+    // 全局函数导出
     window.showBinDetails = showBinDetails;
     window.deleteRecord = deleteRecord;
     window.updateRiskNote = updateRiskNote;
 </script>
 
-<!-- CSS动画 -->
 <style>
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes fadeOut {
-        from { opacity: 1; transform: translateY(0); }
-        to { opacity: 0; transform: translateY(20px); }
-    }
+    /* 确保动画样式在head中已定义 */
 </style>
 </body>
 </html>
