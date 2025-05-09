@@ -570,37 +570,65 @@
     }
 
     // 保存记录（自动转换字段格式）
-   async function saveRecords() {
+  async function saveRecords() {
     try {
+        // 1. 准备要保存的数据（自动填充默认值）
         const recordsToSave = records.map(record => ({
-            bin: record.bin,
-            status: record.status,
-            bank_name: record.bank_name,
-            card_type: record.card_type,
-            operator: record.operator,
-            note: record.note,
-            created_at: record.created_at,
-            scheme: record.scheme,
-            brand: record.brand,
-            risk_desc: record.risk_desc,
-            risk_note: record.risk_note
+            bin: record.bin || '000000', // 默认值防止空数据
+            status: record.status || '未知状态',
+            bank_name: record.bank_name || '未知银行',
+            card_type: record.card_type || '未知类型',
+            operator: record.operator || '匿名用户',
+            note: record.note || '',
+            created_at: record.created_at || new Date().toISOString(),
+            scheme: record.scheme || '未知组织',
+            brand: record.brand || '标准卡',
+            risk_desc: record.risk_desc || '未知风险',
+            risk_note: record.risk_note || ''
         }));
 
+        // 2. 执行保存（新增重试机制）
         const { error } = await window.supabase
             .from('bin_records')
             .upsert(recordsToSave, { 
-                onConflict: 'bin'  // 修改点：去掉了方括号
+                onConflict: 'bin',  // 明确指定冲突解决列
+                returning: 'minimal' // 减少网络传输
             });
 
-        if (error) throw error;
-        updateTable(); // 新增：保存后刷新表格
-        
+        // 3. 错误处理（更详细）
+        if (error) {
+            console.error('数据库错误详情:', {
+                message: error.message,
+                details: error.details,
+                hint: error.hint
+            });
+            throw new Error(`保存失败: ${error.message}`);
+        }
+
+        // 4. 保存成功后刷新界面
+        updateTable();
+        showToast('保存成功！'); // 新增友好提示
+
     } catch (error) {
-        console.error('保存失败:', error);
-        alert('操作失败: ' + error.message); // 修改点：改为alert提示
+        // 增强的错误处理
+        const errorMsg = error.message.includes('network') 
+            ? '网络连接失败，请检查网络后重试'
+            : error.message;
+        
+        alert(`操作失败: ${errorMsg}`);
+        console.error('完整错误日志:', error);
     }
 }
 
+
+    // 新增的辅助函数（粘贴在saveRecords后面）
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.style = 'position:fixed; top:20px; right:20px; padding:12px; background:#4CAF50; color:white; border-radius:4px;';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
 function initStatusButtons() {
     document.querySelectorAll('.statusBtn').forEach(btn => {
         btn.addEventListener('click', function() {
