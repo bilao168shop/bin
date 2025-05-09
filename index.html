@@ -556,65 +556,43 @@
 
         // 检查并修复表结构
         async function checkAndFixTableStructure() {
-            try {
-                // 1. 检查连接是否正常
-                await checkConnection();
-                
-                // 2. 检查表是否存在
-                const { data: tables, error: tablesError } = await window.supabase
-                    .from('pg_tables')
-                    .select('tablename')
-                    .eq('schemaname', 'public')
-                    .eq('tablename', 'bin_records');
-                    
-                if (tablesError) throw tablesError;
-                
-                // 3. 如果表不存在则创建
-                if (!tables || tables.length === 0) {
-                    console.log('检测到表不存在，正在创建...');
-                    const { error: createError } = await window.supabase.rpc('create_bin_tables');
-                    if (createError) throw createError;
-                    console.log('表创建成功');
-                    return true;
-                }
-                
-                // 4. 检查主键约束是否正确设置
-                console.log('正在检查主键约束...');
-                const { data: constraints, error: constraintsError } = await window.supabase
-                    .rpc('check_primary_key_constraint', { 
-                        table_name: 'bin_records',
-                        column_names: ['bin', 'created_at']
-                    });
-                    
-                if (constraintsError) throw constraintsError;
-                
-                // 5. 如果缺少主键约束，则添加
-                if (!constraints || !constraints.exists) {
-                    console.log('检测到缺少主键约束，正在修复...');
-                    const { error: fixError } = await window.supabase
-                        .rpc('add_composite_primary_key', {
-                            table_name: 'bin_records',
-                            column_names: ['bin', 'created_at']
-                        });
-                    if (fixError) throw fixError;
-                    console.log('主键约束修复成功');
-                } else {
-                    console.log('主键约束检查通过');
-                }
-                
-                return true;
-                
-            } catch (error) {
-                console.error('表结构检查失败:', error);
-                const errorMessage = error.message.includes('permission') 
-                    ? '数据库权限不足，请联系管理员'
-                    : error.message.includes('network')
-                    ? '网络连接失败，请检查网络设置'
-                    : `数据库初始化失败: ${error.message}`;
-                    
-                throw new Error(errorMessage);
-            }
+    try {
+        // 1. 使用更可靠的方式检查表是否存在
+        const { data, error } = await window.supabase
+            .from('bin_records')
+            .select('bin')
+            .limit(1)
+            .single();
+
+        // 2. 表不存在时的处理（错误代码42P01=表不存在）
+        if (error?.code === '42P01') {
+            console.log('正在自动创建数据库表...');
+            const { error: createError } = await window.supabase.rpc('create_bin_tables');
+            if (createError) throw createError;
+            console.log('表创建成功');
+            return true;
         }
+        if (error) throw error;
+
+        // 3. 检查主键约束（使用实测通过的替代方案）
+        console.log('正在验证表结构完整性...');
+        const { data: validation, error: validationError } = await window.supabase
+            .rpc('validate_table_structure');
+        
+        if (validationError) throw validationError;
+        
+        if (!validation?.is_valid) {
+            console.log('检测到表结构异常，正在修复...');
+            const { error: repairError } = await window.supabase.rpc('repair_table_structure');
+            if (repairError) throw repairError;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('数据库初始化失败:', error);
+        throw new Error(`数据库初始化失败: ${error.message}`);
+    }
+}
 
         // 加载记录
         async function loadRecords() {
