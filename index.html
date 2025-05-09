@@ -570,43 +570,46 @@
     }
 
     // 保存记录（自动转换字段格式）
-    async function saveRecords() {
-        try {
-            const recordsToSave = records.map(record => ({
-                bin: record.bin,
-                status: record.status,
-                bank_name: record.bank_name,
-                card_type: record.card_type,
-                operator: record.operator,
-                note: record.note,
-                created_at: record.created_at,
-                scheme: record.scheme,
-                brand: record.brand,
-                risk_desc: record.risk_desc,
-                risk_note: record.risk_note
-            }));
-            
-            const { error } = await window.supabase
-                .from('bin_records')
-                .upsert(recordsToSave, { onConflict: ['bin'] });
-            
-            if (error) throw error;
-            
-        } catch (error) {
-            console.error('保存失败:', error);
-            throw new Error('保存失败: ' + error.message);
-        }
-    }
+   async function saveRecords() {
+    try {
+        const recordsToSave = records.map(record => ({
+            bin: record.bin,
+            status: record.status,
+            bank_name: record.bank_name,
+            card_type: record.card_type,
+            operator: record.operator,
+            note: record.note,
+            created_at: record.created_at,
+            scheme: record.scheme,
+            brand: record.brand,
+            risk_desc: record.risk_desc,
+            risk_note: record.risk_note
+        }));
 
-    function initStatusButtons() {
-        document.querySelectorAll('.statusBtn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('.statusBtn').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                currentStatus = this.dataset.status;
+        const { error } = await window.supabase
+            .from('bin_records')
+            .upsert(recordsToSave, { 
+                onConflict: 'bin'  // 修改点：去掉了方括号
             });
-        });
+
+        if (error) throw error;
+        updateTable(); // 新增：保存后刷新表格
+        
+    } catch (error) {
+        console.error('保存失败:', error);
+        alert('操作失败: ' + error.message); // 修改点：改为alert提示
     }
+}
+
+function initStatusButtons() {
+    document.querySelectorAll('.statusBtn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.statusBtn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentStatus = this.dataset.status;
+        });
+    });
+}
 
     function initForm() {
         document.getElementById('entryForm').addEventListener('submit', async function(e) {
