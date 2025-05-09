@@ -4,23 +4,339 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>捞那®卡头管理系统</title>
-    
-    <!-- Supabase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <style>
-        /* 所有CSS样式保持不变 */
-        body {
-            font-family: 'Arial', sans-serif;
-            line-height: 1.6;
-            color: #333;
-            width: 85%;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f7fa;
+        :root {
+            --primary-color: #4a6bdf;
+            --success-color: #4CAF50;
+            --warning-color: #FFC107;
+            --danger-color: #F44336;
+            --text-color: #333;
+            --light-gray: #f5f7fa;
+            --medium-gray: #e0e0e0;
+            --dark-gray: #757575;
         }
         
-        /* 保持原有所有样式... */
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--light-gray);
+            margin: 0;
+            padding: 20px;
+        }
+        
+        #connectionStatus {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: none;
+        }
+        
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        
+        h1:after {
+            content: "";
+            display: block;
+            width: 100px;
+            height: 3px;
+            background: var(--primary-color);
+            margin: 10px auto;
+        }
+        
+        #entryForm {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark-gray);
+        }
+        
+        input[type="text"],
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--medium-gray);
+            border-radius: 4px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(74, 107, 223, 0.2);
+        }
+        
+        .status-buttons {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .statusBtn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .statusBtn.active {
+            color: white;
+        }
+        
+        .statusBtn[data-status="成功"] {
+            background-color: var(--success-color);
+            color: white;
+        }
+        
+        .statusBtn[data-status="失败"] {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        
+        .statusBtn[data-status="异常"] {
+            background-color: var(--warning-color);
+            color: black;
+        }
+        
+        .primary-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .primary-btn:hover {
+            background-color: #3a56c4;
+        }
+        
+        #searchContainer {
+            margin: 20px 0;
+            position: relative;
+        }
+        
+        #searchInput {
+            padding: 12px 15px;
+            width: 300px;
+            max-width: 100%;
+            border: 1px solid var(--medium-gray);
+            border-radius: 20px;
+            font-size: 16px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23757575" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>');
+            background-repeat: no-repeat;
+            background-position: 15px center;
+            padding-left: 40px;
+        }
+        
+        .bin-count-info {
+            margin-left: 15px;
+            color: var(--dark-gray);
+            font-size: 14px;
+        }
+        
+        #dataTable {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        #dataTable th {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        #dataTable th:hover {
+            background-color: #3a56c4;
+        }
+        
+        #dataTable th.sort-asc:after {
+            content: " ↑";
+        }
+        
+        #dataTable th.sort-desc:after {
+            content: " ↓";
+        }
+        
+        #dataTable td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--medium-gray);
+        }
+        
+        #dataTable tr:last-child td {
+            border-bottom: none;
+        }
+        
+        #dataTable tr:hover {
+            background-color: rgba(74, 107, 223, 0.05);
+        }
+        
+        .bin-link-container {
+            display: flex;
+            align-items: center;
+        }
+        
+        .bin-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .bin-link:hover {
+            text-decoration: underline;
+        }
+        
+        .bin-count {
+            background: var(--medium-gray);
+            color: var(--dark-gray);
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 8px;
+        }
+        
+        .scheme-icon {
+            height: 20px;
+            vertical-align: middle;
+            margin-right: 5px;
+        }
+        
+        .success-count {
+            color: var(--success-color);
+            font-weight: bold;
+        }
+        
+        .fail-count {
+            color: var(--danger-color);
+            font-weight: bold;
+        }
+        
+        .warning-count {
+            color: var(--warning-color);
+            font-weight: bold;
+        }
+        
+        .success-rate {
+            font-weight: bold;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .success-badge {
+            background-color: rgba(76, 175, 80, 0.2);
+            color: var(--success-color);
+        }
+        
+        .fail-badge {
+            background-color: rgba(244, 67, 54, 0.2);
+            color: var(--danger-color);
+        }
+        
+        .warning-badge {
+            background-color: rgba(255, 193, 7, 0.2);
+            color: #ff8f00;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 25px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 900px;
+            max-height: 80vh;
+            overflow: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: black;
+        }
+        
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .detail-table th {
+            background-color: #f1f3f9;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        .detail-table td {
+            padding: 12px;
+            border-bottom: 1px solid var(--medium-gray);
+        }
+        
+        .loading {
+            color: var(--dark-gray);
+            font-style: italic;
+        }
         
         .error-dialog {
             position: fixed;
@@ -36,6 +352,60 @@
             max-height: 80%;
             overflow: auto;
         }
+        
+        .error-dialog h3 {
+            color: #e53e3e;
+            margin-top: 0;
+        }
+        
+        .secondary-btn {
+            background: #e2e8f0;
+            color: #2d3748;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .secondary-btn:hover {
+            background: #cbd5e0;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            #entryForm {
+                padding: 15px;
+            }
+            
+            #dataTable {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 10% auto;
+            }
+            
+            .status-buttons {
+                flex-wrap: wrap;
+            }
+        }
     </style>
 </head>
 <body>
@@ -43,7 +413,36 @@
     <h1>捞那®卡头管理系统</h1>
     
     <form id="entryForm">
-        <!-- 保持原有表单结构... -->
+        <div class="form-group">
+            <label for="binInput">卡头 (BIN):</label>
+            <input type="text" id="binInput" placeholder="输入6位卡头" maxlength="6" pattern="\d{6}" required>
+        </div>
+        
+        <div class="form-group">
+            <label>状态:</label>
+            <div class="status-buttons">
+                <button type="button" class="statusBtn" data-status="成功">成功</button>
+                <button type="button" class="statusBtn" data-status="失败">失败</button>
+                <button type="button" class="statusBtn" data-status="异常">异常</button>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="operatorInput">操作人:</label>
+            <input type="text" id="operatorInput" placeholder="输入操作人姓名">
+        </div>
+        
+        <div class="form-group">
+            <label for="amountInput">金额 (可选):</label>
+            <input type="number" id="amountInput" placeholder="输入金额">
+        </div>
+        
+        <div class="form-group">
+            <label for="noteInput">备注 (可选):</label>
+            <textarea id="noteInput" rows="2" placeholder="输入备注信息"></textarea>
+        </div>
+        
+        <button type="submit" class="primary-btn" id="saveBtn">添加记录</button>
     </form>
 
     <div id="searchContainer">
@@ -55,13 +454,37 @@
     <div id="tempSearchResult" class="temp-search-result" style="display:none"></div>
 
     <table id="dataTable">
-        <!-- 保持原有表格结构... -->
+        <thead>
+            <tr>
+                <th data-sort="bin">卡头</th>
+                <th data-sort="bank_name">银行</th>
+                <th data-sort="card_type">卡类型</th>
+                <th data-sort="scheme">卡组织</th>
+                <th data-sort="brand">品牌</th>
+                <th data-sort="risk_desc">地区</th>
+                <th data-sort="success">成功</th>
+                <th data-sort="fail">失败</th>
+                <th data-sort="warning">异常</th>
+                <th data-sort="successRate">成功率</th>
+                <th>风控备注</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- 数据将通过JavaScript动态填充 -->
+        </tbody>
     </table>
 
     <div id="detailModal" class="modal">
-        <!-- 保持原有模态框结构... -->
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modalTitle">BIN详情</h2>
+            <div id="modalContent">
+                <!-- 详情内容将通过JavaScript动态填充 -->
+            </div>
+        </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         // 配置
         const IINAPI_KEY = "MlIDgiUwEvuMWgK6ok4h9msL9O7DsZm0";
@@ -231,7 +654,8 @@
                 throw new Error('加载记录失败: ' + error.message);
             }
         }
-                // 显示提示
+
+        // 显示提示
         function showToast(message, isError = false) {
             const toast = document.createElement('div');
             toast.style = `
@@ -602,7 +1026,7 @@
                         brand: record.brand || '标准卡',
                         risk_desc: record.risk_desc || '未知风险',
                         risk_note: record.risk_note || '',
-                        ...(record.amount && { amount: record.amount })
+                        ...(record.amount && { amount: parseFloat(record.amount) })
                     }));
 
                     // 使用upsert而不是insert
