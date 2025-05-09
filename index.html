@@ -1016,43 +1016,115 @@
 
     // 显示BIN详情
     function showBinDetails(bin) {
-        const modal = document.getElementById('detailModal');
-        const modalContent = document.getElementById('modalContent');
-        const binRecords = records.filter(r => r.bin === bin).sort((a, b) => 
-            new Date(b.created_at) - new Date(a.created_at));
+    const modal = document.getElementById('detailModal');
+    const modalContent = document.getElementById('modalContent');
+    const binRecords = records.filter(r => r.bin === bin).sort((a, b) => 
+        new Date(b.created_at) - new Date(a.created_at));
+    
+    const stats = {
+        success: binRecords.filter(r => r.status === '成功').length,
+        fail: binRecords.filter(r => r.status === '失败').length,
+        warning: binRecords.filter(r => r.status === '异常').length
+    };
+    
+    document.getElementById('modalTitle').innerHTML = `
+        BIN ${bin} 详情 <small>(成功 ${stats.success}条, 失败 ${stats.fail}条, 异常 ${stats.warning}条)</small>
+    `;
+    
+    let content = `
+        <div style="margin-bottom: 20px;">
+            <strong>银行:</strong> ${binRecords[0].bank_name}<br>
+            <strong>卡组织:</strong> ${binRecords[0].scheme}<br>
+            <strong>卡类型:</strong> ${binRecords[0].card_type}<br>
+            <strong>地区信息:</strong> ${binRecords[0].risk_desc}<br>
+            <strong>风控备注:</strong> ${binRecords[0].risk_note || '无'}
+        </div>
+        <table class="detail-table">
+            <thead>
+                <tr>
+                    <th>时间</th>
+                    <th>状态</th>
+                    <th>操作人</th>
+                    <th>金额</th>
+                    <th>备注</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    binRecords.forEach(record => {
+        const date = new Date(record.created_at).toLocaleString();
+        const statusClass = record.status === '成功' ? 'success-badge' : 
+                          record.status === '失败' ? 'fail-badge' : 'warning-badge';
         
-        const stats = {
-            success: binRecords.filter(r => r.status === '成功').length,
-            fail: binRecords.filter(r => r.status === '失败').length,
-            warning: binRecords.filter(r => r.status === '异常').length
-        };
-        
-        document.getElementById('modalTitle').innerHTML = `
-            BIN ${bin} 详情 <small>(成功 ${stats.success}条, 失败 ${stats.fail}条, 异常 ${stats.warning}条)</small>
+        content += `
+            <tr>
+                <td>${date}</td>
+                <td><span class="status-badge ${statusClass}">${record.status}</span></td>
+                <td>${record.operator}</td>
+                <td>${record.amount || '-'}</td>
+                <td>${record.note || '-'}</td>
+                <td><button class="primary-btn" style="padding: 3px 8px; font-size: 12px;" 
+                      onclick="deleteRecord('${record.id || record.created_at}')">删除</button></td>
+            </tr>
         `;
-        
-        let content = `
-            <div style="margin-bottom: 20px;">
-                <strong>银行:</strong> ${binRecords[0].bank_name}<br>
-                <strong>卡组织:</strong> ${binRecords[0].scheme}<br   
-                
-                <!-- 全局函数 -->
-    <script>
-        window.showBinDetails = showBinDetails;
-        window.deleteRecord = deleteRecord;
-        window.updateRiskNote = updateRiskNote;
-    </script>
+    });
+    
+    content += `
+            </tbody>
+        </table>
+    `;
+    
+    modalContent.innerHTML = content;
+    modal.style.display = 'block';
+}
 
-    <!-- 添加CSS动画 -->
-    <style>
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeOut {
-            from { opacity: 1; transform: translateY(0); }
-            to { opacity: 0; transform: translateY(20px); }
-        }
-    </style>
+// 删除记录函数
+async function deleteRecord(recordId) {
+    if (!confirm('确定要删除这条记录吗？')) return;
+    
+    try {
+        // 尝试通过id删除
+        const { error } = await window.supabase
+            .from('bin_records')
+            .delete()
+            .or(`id.eq.${recordId},and(created_at.eq.${recordId})`);
+        
+        if (error) throw error;
+        
+        // 更新本地数据
+        records = records.filter(r => 
+            (r.id && r.id.toString() !== recordId) || 
+            (!r.id && r.created_at !== recordId)
+        );
+        
+        updateTable();
+        showToast('删除成功');
+        document.getElementById('detailModal').style.display = 'none';
+    } catch (error) {
+        console.error('删除失败:', error);
+        showToast('删除失败: ' + error.message, true);
+    }
+}
+
+<!-- 全局函数导出 -->
+<script>
+    window.showBinDetails = showBinDetails;
+    window.deleteRecord = deleteRecord;
+    window.updateRiskNote = updateRiskNote;
+</script>
+
+<!-- CSS动画 -->
+<style>
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeOut {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(20px); }
+    }
+</style>
 </body>
 </html>
