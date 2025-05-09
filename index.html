@@ -494,15 +494,19 @@
         async function checkAndFixTableStructure() {
             try {
                 // 检查表是否存在
-                const { data: tableExists, error: tableError } = await window.supabase
-                    .rpc('table_exists', { table_name: 'bin_records' });
+                const { data: tables, error } = await window.supabase
+                    .from('pg_tables')
+                    .select('tablename')
+                    .eq('tablename', 'bin_records');
                 
-                if (tableError || !tableExists) {
+                if (error) throw error;
+                
+                if (tables.length === 0) {
                     await createTables();
                     return;
                 }
 
-                // 检查缺失字段并自动添加
+                // 检查字段是否存在
                 const requiredColumns = [
                     { name: 'scheme', type: 'text', default: '未知' },
                     { name: 'brand', type: 'text', default: '未知' },
@@ -511,35 +515,50 @@
                 ];
 
                 for (const col of requiredColumns) {
-                    const { data: colExists } = await window.supabase
-                        .rpc('column_exists', { 
-                            table_name: 'bin_records',
-                            column_name: col.name 
-                        });
+                    const { data: columns } = await window.supabase
+                        .from('information_schema.columns')
+                        .select('column_name')
+                        .eq('table_name', 'bin_records')
+                        .eq('column_name', col.name);
                     
-                    if (!colExists) {
-                        await window.supabase.rpc('add_column', {
+                    if (columns.length === 0) {
+                        await window.supabase.rpc('alter_table_add_column', {
                             table_name: 'bin_records',
                             column_name: col.name,
-                            column_type: col.type,
-                            default_value: col.default
+                            data_type: col.type
                         });
                         console.log(`已添加缺失字段: ${col.name}`);
                     }
                 }
             } catch (error) {
                 console.error('表结构检查失败:', error);
-                throw new Error('表结构自动修复失败，请手动添加缺失字段');
+                throw new Error('表结构自动修复失败，请手动检查数据库');
             }
         }
 
-        // 创建表（带所有必需字段）
+        // 创建表
         async function createTables() {
-            await window.supabase.rpc('create_bin_tables');
-            console.log('表创建完成');
+            try {
+                // 创建主表
+                const { error } = await window.supabase
+                    .from('bin_records')
+                    .insert([{
+                        bin: '000000',
+                        status: '初始化',
+                        bank_name: '系统',
+                        created_at: new Date().toISOString()
+                    }]);
+                
+                if (error && !error.message.includes('不存在')) throw error;
+                
+                console.log('表初始化完成');
+            } catch (error) {
+                console.error('表创建失败:', error);
+                throw error;
+            }
         }
 
-        // 加载记录（带字段兼容处理）
+        // 加载记录
         async function loadRecords() {
             try {
                 // 1. 加载主记录
@@ -579,7 +598,7 @@
             }
         }
 
-        // 保存记录（优化版）
+        // 保存记录
         async function saveRecords() {
             const saveBtn = document.getElementById('saveBtn');
             try {
@@ -618,8 +637,7 @@
                         const { error } = await window.supabase
                             .from('bin_records')
                             .upsert(recordsToSave, { 
-                                onConflict: 'bin',
-                                returning: 'minimal'
+                                onConflict: 'bin,created_at' // 使用复合主键
                             });
 
                         if (error) throw error;
@@ -659,7 +677,7 @@
             }
         }
 
-        // 显示提示（优化版）
+        // 显示提示
         function showToast(message, isError = false) {
             const toast = document.createElement('div');
             toast.style = `
@@ -694,7 +712,7 @@
             });
         }
 
-        // 初始化表单（优化版）
+        // 初始化表单
         function initForm() {
             document.getElementById('entryForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
@@ -754,373 +772,383 @@
                     document.querySelectorAll('.statusBtn').forEach(b => b.classList.remove('active'));
                     
                 } catch (error) {
-                console.error('提交失败:', error);
-                // 从记录中移除失败的条目
-                records = records.filter(r => r !== newRecord);
-                updateTable();
-            }
-        });
-    }
-
-    // 获取元数据
-    async function fetchMetadata(bin, saveToCache = true) {
-        if (metaCache[bin]) return metaCache[bin];
-
-        const tempResult = document.getElementById('tempResult');
-        tempResult.innerHTML = '<span class="loading">正在查询BIN信息...</span>';
-
-        try {
-            const response = await fetch(`https://api.iinapi.com/iin?key=${IINAPI_KEY}&digits=${bin}`);
-            if (!response.ok) throw new Error(`API请求失败: ${response.status}`);
-
-            const data = await response.json();
-            if (!data.valid || !data.result) throw new Error('无效的BIN数据');
-
-            const result = {
-                bankName: data.result.IssuingInstitution || '未知银行',
-                cardType: data.result.CardType === 'DEBIT' ? '借记卡' : 
-                         data.result.CardType === 'CREDIT' ? '信用卡' : '未知类型',
-                scheme: data.result.CardBrand === 'AMERICAN EXPRESS' ? 'AMEX' : data.result.CardBrand,
-                brand: data.result.CardCategory || '标准卡',
-                riskDesc: `${data.result.IssuingCountry || '未知国家'} (${data.result.IssuingCountryCode || 'XX'})`
-            };
-
-            if (saveToCache) {
-                metaCache[bin] = result;
-                await window.supabase
-                    .from('bin_metadata')
-                    .upsert([{ bin, data: result }]);
-            }
-
-            tempResult.innerHTML = '查询完成';
-            return result;
-
-        } catch (error) {
-            console.error('BIN查询失败:', error);
-            tempResult.innerHTML = `查询失败: ${error.message}`;
-            
-            return {
-                bankName: '查询失败',
-                cardType: '未知',
-                scheme: '未知',
-                brand: '未知',
-                riskDesc: error.message
-            };
+                    console.error('提交失败:', error);
+                    // 从记录中移除失败的条目
+                    records = records.filter(r => r !== newRecord);
+                    updateTable();
+                }
+            });
         }
-    }
 
-    // 初始化搜索
-    function initSearch() {
-        const searchInput = document.getElementById('searchInput');
-        searchInput.addEventListener('input', function() {
-            const keyword = this.value.trim();
-            if (!keyword) {
-                updateTable();
-                document.getElementById('tempSearchResult').style.display = 'none';
-                return;
-            }
-            
-            if (keyword.length === 6 && /^\d+$/.test(keyword)) {
-                searchBin(keyword);
-            } else {
-                const filtered = records.filter(r => 
-                    r.bin.includes(keyword) || 
-                    (r.bank_name && r.bank_name.toLowerCase().includes(keyword.toLowerCase())) ||
-                    (r.scheme && r.scheme.toLowerCase().includes(keyword.toLowerCase()))
-                );
-                updateTable(filtered);
-                document.getElementById('tempSearchResult').style.display = 'none';
-            }
-        });
-    }
+        // 获取元数据
+        async function fetchMetadata(bin, saveToCache = true) {
+            if (metaCache[bin]) return metaCache[bin];
 
-    // 搜索BIN
-    async function searchBin(bin) {
-        const tempResult = document.getElementById('tempResult');
-        const tempSearchResult = document.getElementById('tempSearchResult');
-        
-        tempResult.innerHTML = '<span class="loading">正在查询BIN信息...</span>';
-        tempSearchResult.style.display = 'none';
-        
-        try {
-            const data = await fetchMetadata(bin, false);
+            const tempResult = document.getElementById('tempResult');
+            tempResult.innerHTML = '<span class="loading">正在查询BIN信息...</span>';
+
+            try {
+                const response = await fetch(`https://api.iinapi.com/iin?key=${IINAPI_KEY}&digits=${bin}`);
+                if (!response.ok) throw new Error(`API请求失败: ${response.status}`);
+
+                const data = await response.json();
+                if (!data.valid || !data.result) throw new Error('无效的BIN数据');
+
+                const result = {
+                    bankName: data.result.IssuingInstitution || '未知银行',
+                    cardType: data.result.CardType === 'DEBIT' ? '借记卡' : 
+                             data.result.CardType === 'CREDIT' ? '信用卡' : '未知类型',
+                    scheme: data.result.CardBrand === 'AMERICAN EXPRESS' ? 'AMEX' : data.result.CardBrand,
+                    brand: data.result.CardCategory || '标准卡',
+                    riskDesc: `${data.result.IssuingCountry || '未知国家'} (${data.result.IssuingCountryCode || 'XX'})`
+                };
+
+                if (saveToCache) {
+                    metaCache[bin] = result;
+                    await window.supabase
+                        .from('bin_metadata')
+                        .upsert([{ bin, data: result }]);
+                }
+
+                tempResult.innerHTML = '查询完成';
+                return result;
+
+            } catch (error) {
+                console.error('BIN查询失败:', error);
+                tempResult.innerHTML = `查询失败: ${error.message}`;
+                
+                return {
+                    bankName: '查询失败',
+                    cardType: '未知',
+                    scheme: '未知',
+                    brand: '未知',
+                    riskDesc: error.message
+                };
+            }
+        }
+
+        // 初始化搜索
+        function initSearch() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', function() {
+                const keyword = this.value.trim();
+                if (!keyword) {
+                    updateTable();
+                    document.getElementById('tempSearchResult').style.display = 'none';
+                    return;
+                }
+                
+                if (keyword.length === 6 && /^\d+$/.test(keyword)) {
+                    searchBin(keyword);
+                } else {
+                    const filtered = records.filter(r => 
+                        r.bin.includes(keyword) || 
+                        (r.bank_name && r.bank_name.toLowerCase().includes(keyword.toLowerCase())) ||
+                        (r.scheme && r.scheme.toLowerCase().includes(keyword.toLowerCase()))
+                    );
+                    updateTable(filtered);
+                    document.getElementById('tempSearchResult').style.display = 'none';
+                }
+            });
+        }
+
+        // 搜索BIN
+        async function searchBin(bin) {
+            const tempResult = document.getElementById('tempResult');
+            const tempSearchResult = document.getElementById('tempSearchResult');
             
-            let searchContent = `
-                <h3>卡头搜索结果 (BIN: ${bin})</h3>
-                <div class="search-result-item">
-                    <span class="search-result-label">发卡机构:</span>
-                    ${data.scheme || '未知'}
-                </div>
-                <div class="search-result-item">
-                    <span class="search-result-label">银行:</span>
-                    ${data.bankName || '未知'}
-                </div>
-                <div class="search-result-item">
-                    <span class="search-result-label">卡类型:</span>
-                    ${data.cardType || '未知'}
-                </div>
-                <div class="search-result-item">
-                    <span class="search-result-label">品牌:</span>
-                    ${data.brand || '未知'}
-                </div>
-                <div class="search-result-item">
-                    <span class="search-result-label">地区:</span>
-                    ${data.riskDesc || '未知'}
-                </div>
-            `;
-            
-            tempSearchResult.innerHTML = searchContent;
-            tempSearchResult.style.display = 'block';
-            tempResult.innerHTML = '';
-            
-        } catch (error) {
-            tempResult.innerHTML = `查询失败: ${error.message}`;
+            tempResult.innerHTML = '<span class="loading">正在查询BIN信息...</span>';
             tempSearchResult.style.display = 'none';
-        }
-    }
-
-    // 初始化表格排序
-    function initTableSorting() {
-        document.querySelectorAll('#dataTable th[data-sort]').forEach(th => {
-            th.addEventListener('click', function() {
-                const key = this.getAttribute('data-sort');
-                sortConfig.direction = sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc';
-                sortConfig.key = key;
+            
+            try {
+                const data = await fetchMetadata(bin, false);
                 
-                document.querySelectorAll('#dataTable th').forEach(h => 
-                    h.classList.remove('sort-asc', 'sort-desc')
-                );
-                this.classList.add(`sort-${sortConfig.direction}`);
-                
-                sortRecords();
-                updateTable();
-            });
-        });
-    }
-
-    // 排序记录
-    function sortRecords() {
-        if (!sortConfig.key) return;
-        
-        const uniqueBins = [...new Set(records.map(r => r.bin))];
-        const binStats = uniqueBins.map(bin => {
-            const binRecords = records.filter(r => r.bin === bin);
-            const latestRecord = binRecords.reduce((latest, current) => 
-                new Date(current.created_at) > new Date(latest.created_at) ? current : latest);
-            
-            const stats = {
-                success: binRecords.filter(r => r.status === '成功').length,
-                fail: binRecords.filter(r => r.status === '失败').length,
-                warning: binRecords.filter(r => r.status === '异常').length
-            };
-            
-            return {
-                bin,
-                records: binRecords,
-                latestRecord,
-                stats,
-                successRate: stats.success + stats.fail + stats.warning > 0 ?
-                    stats.success / (stats.success + stats.fail + stats.warning) : 0
-            };
-        });
-        
-        binStats.sort((a, b) => {
-            let valA, valB;
-            
-            switch(sortConfig.key) {
-                case 'successRate': valA = a.successRate; valB = b.successRate; break;
-                case 'success': valA = a.stats.success; valB = b.stats.success; break;
-                case 'fail': valA = a.stats.fail; valB = b.stats.fail; break;
-                case 'warning': valA = a.stats.warning; valB = b.stats.warning; break;
-                default: valA = a.latestRecord[sortConfig.key]; valB = b.latestRecord[sortConfig.key];
-            }
-            
-            if (typeof valA === 'string') valA = valA.toLowerCase();
-            if (typeof valB === 'string') valB = valB.toLowerCase();
-            
-            return sortConfig.direction === 'asc' ? 
-                   (valA < valB ? -1 : valA > valB ? 1 : 0) :
-                   (valA > valB ? -1 : valA < valB ? 1 : 0);
-        });
-        
-        records = [];
-        binStats.forEach(bin => records.push(...bin.records));
-        saveRecords();
-    }
-
-    // 更新表格
-    function updateTable(data = records) {
-        const tbody = document.querySelector('#dataTable tbody');
-        tbody.innerHTML = '';
-        
-        const uniqueBins = [...new Set(data.map(r => r.bin))];
-        uniqueBins.forEach(bin => {
-            const binRecords = data.filter(r => r.bin === bin);
-            const latestRecord = binRecords.reduce((latest, current) => 
-                new Date(current.created_at) > new Date(latest.created_at) ? current : latest);
-            
-            const stats = {
-                success: binRecords.filter(r => r.status === '成功').length,
-                fail: binRecords.filter(r => r.status === '失败').length,
-                warning: binRecords.filter(r => r.status === '异常').length
-            };
-            
-            const successRate = stats.success + stats.fail + stats.warning > 0 ?
-                `${Math.round((stats.success / (stats.success + stats.fail + stats.warning)) * 100)}%` : '0%';
-            
-            const schemeIcon = schemeIcons[latestRecord.scheme] ? 
-                `<img src="${schemeIcons[latestRecord.scheme]}" class="scheme-icon" alt="${latestRecord.scheme}">` : '';
-            
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>
-                    <div class="bin-link-container">
-                        <a href="javascript:void(0)" class="bin-link" onclick="showBinDetails('${bin}')">${bin}</a>
-                        <span class="bin-count">${binRecords.length}</span>
+                let searchContent = `
+                    <h3>卡头搜索结果 (BIN: ${bin})</h3>
+                    <div class="search-result-item">
+                        <span class="search-result-label">发卡机构:</span>
+                        ${data.scheme || '未知'}
                     </div>
-                </td>
-                <td>${latestRecord.bank_name}</td>
-                <td>${latestRecord.card_type}</td>
-                <td>${schemeIcon}${latestRecord.scheme}</td>
-                <td>${latestRecord.brand}</td>
-                <td>${latestRecord.risk_desc}</td>
-                <td class="success-count">${stats.success}</td>
-                <td class="fail-count">${stats.fail}</td>
-                <td class="warning-count">${stats.warning}</td>
-                <td class="success-rate">${successRate}</td>
-                <td>
-                    <span class="risk-desc">${latestRecord.risk_note || '-'}</span>
-                    <button class="primary-btn" onclick="updateRiskNote('${bin}')" 
-                            style="padding: 3px 8px; font-size: 12px; margin-left: 5px;">更新</button>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
-    }
+                    <div class="search-result-item">
+                        <span class="search-result-label">银行:</span>
+                        ${data.bankName || '未知'}
+                    </div>
+                    <div class="search-result-item">
+                        <span class="search-result-label">卡类型:</span>
+                        ${data.cardType || '未知'}
+                    </div>
+                    <div class="search-result-item">
+                        <span class="search-result-label">品牌:</span>
+                        ${data.brand || '未知'}
+                    </div>
+                    <div class="search-result-item">
+                        <span class="search-result-label">地区:</span>
+                        ${data.riskDesc || '未知'}
+                    </div>
+                `;
+                
+                tempSearchResult.innerHTML = searchContent;
+                tempSearchResult.style.display = 'block';
+                tempResult.innerHTML = '';
+                
+            } catch (error) {
+                tempResult.innerHTML = `查询失败: ${error.message}`;
+                tempSearchResult.style.display = 'none';
+            }
+        }
 
-    // 更新风险备注
-    async function updateRiskNote(bin) {
-        const currentNote = records.find(r => r.bin === bin)?.risk_note || '';
-        const newNote = prompt('请输入银行风控描述', currentNote);
-        if (newNote !== null) {
-            records.forEach(r => {
-                if (r.bin === bin) r.risk_note = newNote;
+        // 初始化表格排序
+        function initTableSorting() {
+            document.querySelectorAll('#dataTable th[data-sort]').forEach(th => {
+                th.addEventListener('click', function() {
+                    const key = this.getAttribute('data-sort');
+                    sortConfig.direction = sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                    sortConfig.key = key;
+                    
+                    document.querySelectorAll('#dataTable th').forEach(h => 
+                        h.classList.remove('sort-asc', 'sort-desc')
+                    );
+                    this.classList.add(`sort-${sortConfig.direction}`);
+                    
+                    sortRecords();
+                    updateTable();
+                });
             });
-            await saveRecords();
-            updateTable();
         }
-    }
 
-    // 更新BIN计数
-    function updateBinCount() {
-        const uniqueBins = new Set(records.map(r => r.bin));
-        document.getElementById('binCountInfo').textContent = `已记录 ${uniqueBins.size} 个BIN`;
-    }
+        // 排序记录
+        function sortRecords() {
+            if (!sortConfig.key) return;
+            
+            const uniqueBins = [...new Set(records.map(r => r.bin))];
+            const binStats = uniqueBins.map(bin => {
+                const binRecords = records.filter(r => r.bin === bin);
+                const latestRecord = binRecords.reduce((latest, current) => 
+                    new Date(current.created_at) > new Date(latest.created_at) ? current : latest);
+                
+                const stats = {
+                    success: binRecords.filter(r => r.status === '成功').length,
+                    fail: binRecords.filter(r => r.status === '失败').length,
+                    warning: binRecords.filter(r => r.status === '异常').length
+                };
+                
+                return {
+                    bin,
+                    records: binRecords,
+                    latestRecord,
+                    stats,
+                    successRate: stats.success + stats.fail + stats.warning > 0 ?
+                        stats.success / (stats.success + stats.fail + stats.warning) : 0
+                };
+            });
+            
+            binStats.sort((a, b) => {
+                let valA, valB;
+                
+                switch(sortConfig.key) {
+                    case 'successRate': valA = a.successRate; valB = b.successRate; break;
+                    case 'success': valA = a.stats.success; valB = b.stats.success; break;
+                    case 'fail': valA = a.stats.fail; valB = b.stats.fail; break;
+                    case 'warning': valA = a.stats.warning; valB = b.stats.warning; break;
+                    default: valA = a.latestRecord[sortConfig.key]; valB = b.latestRecord[sortConfig.key];
+                }
+                
+                if (typeof valA === 'string') valA = valA.toLowerCase();
+                if (typeof valB === 'string') valB = valB.toLowerCase();
+                
+                return sortConfig.direction === 'asc' ? 
+                       (valA < valB ? -1 : valA > valB ? 1 : 0) :
+                       (valA > valB ? -1 : valA < valB ? 1 : 0);
+            });
+            
+            records = [];
+            binStats.forEach(bin => records.push(...bin.records));
+            saveRecords();
+        }
 
-    // 初始化模态框
-    function initModal() {
-        const modal = document.getElementById('detailModal');
-        document.querySelector('.close').addEventListener('click', () => modal.style.display = 'none');
-        window.addEventListener('click', (e) => e.target === modal && (modal.style.display = 'none'));
-    }
+        // 更新表格
+        function updateTable(data = records) {
+            const tbody = document.querySelector('#dataTable tbody');
+            tbody.innerHTML = '';
+            
+            const uniqueBins = [...new Set(data.map(r => r.bin))];
+            uniqueBins.forEach(bin => {
+                const binRecords = data.filter(r => r.bin === bin);
+                const latestRecord = binRecords.reduce((latest, current) => 
+                    new Date(current.created_at) > new Date(latest.created_at) ? current : latest);
+                
+                const stats = {
+                    success: binRecords.filter(r => r.status === '成功').length,
+                    fail: binRecords.filter(r => r.status === '失败').length,
+                    warning: binRecords.filter(r => r.status === '异常').length
+                };
+                
+                const successRate = stats.success + stats.fail + stats.warning > 0 ?
+                    `${Math.round((stats.success / (stats.success + stats.fail + stats.warning)) * 100)}%` : '0%';
+                
+                const schemeIcon = schemeIcons[latestRecord.scheme] ? 
+                    `<img src="${schemeIcons[latestRecord.scheme]}" class="scheme-icon" alt="${latestRecord.scheme}">` : '';
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <div class="bin-link-container">
+                            <a href="javascript:void(0)" class="bin-link" onclick="showBinDetails('${bin}')">${bin}</a>
+                            <span class="bin-count">${binRecords.length}</span>
+                        </div>
+                    </td>
+                    <td>${latestRecord.bank_name}</td>
+                    <td>${latestRecord.card_type}</td>
+                    <td>${schemeIcon}${latestRecord.scheme}</td>
+                    <td>${latestRecord.brand}</td>
+                    <td>${latestRecord.risk_desc}</td>
+                    <td class="success-count">${stats.success}</td>
+                    <td class="fail-count">${stats.fail}</td>
+                    <td class="warning-count">${stats.warning}</td>
+                    <td class="success-rate">${successRate}</td>
+                    <td>
+                        <span class="risk-desc">${latestRecord.risk_note || '-'}</span>
+                        <button class="primary-btn" onclick="updateRiskNote('${bin}')" 
+                                style="padding: 3px 8px; font-size: 12px; margin-left: 5px;">更新</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
 
-    // 显示BIN详情
-    function showBinDetails(bin) {
-        const modal = document.getElementById('detailModal');
-        const modalContent = document.getElementById('modalContent');
-        const binRecords = records.filter(r => r.bin === bin).sort((a, b) => 
-            new Date(b.created_at) - new Date(a.created_at));
-        
-        const stats = {
-            success: binRecords.filter(r => r.status === '成功').length,
-            fail: binRecords.filter(r => r.status === '失败').length,
-            warning: binRecords.filter(r => r.status === '异常').length
-        };
-        
-        document.getElementById('modalTitle').innerHTML = `
-            BIN ${bin} 详情 <small>(成功 ${stats.success}条, 失败 ${stats.fail}条, 异常 ${stats.warning}条)</small>
-        `;
-        
-        let content = `
-            <div style="margin-bottom: 20px;">
-                <strong>银行:</strong> ${binRecords[0].bank_name}<br>
-                <strong>卡组织:</strong> ${binRecords[0].scheme}<br>
-                <strong>卡类型:</strong> ${binRecords[0].card_type}<br>
-                <strong>地区信息:</strong> ${binRecords[0].risk_desc}<br>
-                <strong>风控备注:</strong> ${binRecords[0].risk_note || '无'}
-            </div>
-            <table class="detail-table">
-                <thead>
+        // 更新风险备注
+        async function updateRiskNote(bin) {
+            const currentNote = records.find(r => r.bin === bin)?.risk_note || '';
+            const newNote = prompt('请输入银行风控描述', currentNote);
+            if (newNote !== null) {
+                records.forEach(r => {
+                    if (r.bin === bin) r.risk_note = newNote;
+                });
+                await saveRecords();
+                updateTable();
+            }
+        }
+
+        // 更新BIN计数
+        function updateBinCount() {
+            const uniqueBins = new Set(records.map(r => r.bin));
+            document.getElementById('binCountInfo').textContent = `已记录 ${uniqueBins.size} 个BIN`;
+        }
+
+        // 初始化模态框
+        function initModal() {
+            const modal = document.getElementById('detailModal');
+            document.querySelector('.close').addEventListener('click', () => modal.style.display = 'none');
+            window.addEventListener('click', (e) => e.target === modal && (modal.style.display = 'none'));
+        }
+
+        // 显示BIN详情
+        function showBinDetails(bin) {
+            const modal = document.getElementById('detailModal');
+            const modalContent = document.getElementById('modalContent');
+            const binRecords = records.filter(r => r.bin === bin).sort((a, b) => 
+                new Date(b.created_at) - new Date(a.created_at));
+            
+            const stats = {
+                success: binRecords.filter(r => r.status === '成功').length,
+                fail: binRecords.filter(r => r.status === '失败').length,
+                warning: binRecords.filter(r => r.status === '异常').length
+            };
+            
+            document.getElementById('modalTitle').innerHTML = `
+                BIN ${bin} 详情 <small>(成功 ${stats.success}条, 失败 ${stats.fail}条, 异常 ${stats.warning}条)</small>
+            `;
+            
+            let content = `
+                <div style="margin-bottom: 20px;">
+                    <strong>银行:</strong> ${binRecords[0].bank_name}<br>
+                    <strong>卡组织:</strong> ${binRecords[0].scheme}<br>
+                    <strong>卡类型:</strong> ${binRecords[0].card_type}<br>
+                    <strong>地区信息:</strong> ${binRecords[0].risk_desc}<br>
+                    <strong>风控备注:</strong> ${binRecords[0].risk_note || '无'}
+                </div>
+                <table class="detail-table">
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>状态</th>
+                            <th>操作人</th>
+                            <th>金额</th>
+                            <th>备注</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            binRecords.forEach(record => {
+                const date = new Date(record.created_at).toLocaleString();
+                const statusClass = record.status === '成功' ? 'success-badge' : 
+                                  record.status === '失败' ? 'fail-badge' : 'warning-badge';
+                
+                content += `
                     <tr>
-                        <th>时间</th>
-                        <th>状态</th>
-                        <th>操作人</th>
-                        <th>金额</th>
-                        <th>备注</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>`;
+                        <td>${date}</td>
+                        <td><span class="status-badge ${statusClass}">${record.status}</span></td>
+                        <td>${record.operator}</td>
+                        <td>${record.amount || '-'}</td>
+                        <td>${record.note || '-'}</td>
+                        <td><button class="primary-btn" style="padding: 3px 8px; font-size: 12px;" 
+                              onclick="deleteRecord('${record.id || record.created_at}')">删除</button></td>
+                    </tr>`;
+            });
 
-        binRecords.forEach(record => {
-            const date = new Date(record.created_at).toLocaleString();
-            const statusClass = record.status === '成功' ? 'success-badge' : 
-                              record.status === '失败' ? 'fail-badge' : 'warning-badge';
-            
             content += `
-                <tr>
-                    <td>${date}</td>
-                    <td><span class="status-badge ${statusClass}">${record.status}</span></td>
-                    <td>${record.operator}</td>
-                    <td>${record.amount || '-'}</td>
-                    <td>${record.note || '-'}</td>
-                    <td><button class="primary-btn" style="padding: 3px 8px; font-size: 12px;" 
-                          onclick="deleteRecord('${record.id || record.created_at}')">删除</button></td>
-                </tr>`;
-        });
+                    </tbody>
+                </table>`;
 
-        content += `
-                </tbody>
-            </table>`;
-
-        modalContent.innerHTML = content;
-        modal.style.display = 'block';
-    }
-
-    // 删除记录函数
-    async function deleteRecord(recordId) {
-        if (!confirm('确定要删除这条记录吗？')) return;
-        
-        try {
-            const { error } = await window.supabase
-                .from('bin_records')
-                .delete()
-                .or(`id.eq.${recordId},and(created_at.eq.${recordId})`);
-            
-            if (error) throw error;
-            
-            records = records.filter(r => 
-                (r.id && r.id.toString() !== recordId) || 
-                (!r.id && r.created_at !== recordId)
-            );
-            
-            updateTable();
-            showToast('删除成功');
-            document.getElementById('detailModal').style.display = 'none';
-        } catch (error) {
-            console.error('删除失败:', error);
-            showToast('删除失败: ' + error.message, true);
+            modalContent.innerHTML = content;
+            modal.style.display = 'block';
         }
-    }
 
-    // 全局函数导出
-    window.showBinDetails = showBinDetails;
-    window.deleteRecord = deleteRecord;
-    window.updateRiskNote = updateRiskNote;
-</script>
+        // 删除记录函数
+        async function deleteRecord(recordId) {
+            if (!confirm('确定要删除这条记录吗？')) return;
+            
+            try {
+                // 确保 recordId 是数字或有效时间戳
+                let deleteCondition = {};
+                
+                if (/^\d+$/.test(recordId)) {
+                    // 如果是纯数字，尝试作为ID删除
+                    deleteCondition = { id: parseInt(recordId) };
+                } else {
+                    // 否则作为时间戳处理
+                    if (isNaN(new Date(recordId).getTime())) {
+                        throw new Error('无效的记录标识');
+                    }
+                    deleteCondition = { created_at: recordId };
+                }
 
-<style>
-    /* 确保动画样式在head中已定义 */
-</style>
+                const { error } = await window.supabase
+                    .from('bin_records')
+                    .delete()
+                    .match(deleteCondition);
+                
+                if (error) throw error;
+                
+                records = records.filter(r => 
+                    (r.id && r.id.toString() !== recordId) || 
+                    (!r.id && r.created_at !== recordId)
+                );
+                
+                updateTable();
+                showToast('删除成功');
+                document.getElementById('detailModal').style.display = 'none';
+            } catch (error) {
+                console.error('删除失败:', error);
+                showToast(`删除失败: ${error.message}`, true);
+            }
+        }
+
+        // 全局函数导出
+        window.showBinDetails = showBinDetails;
+        window.deleteRecord = deleteRecord;
+        window.updateRiskNote = updateRiskNote;
+    </script>
 </body>
 </html>
