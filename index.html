@@ -10,7 +10,11 @@
     <script>
       window.supabase = supabase.createClient(
         'https://irhbelntvsjotztnqwnv.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlyaGJlbG50dnNqb3R6dG5xd252Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3NjA2NDYsImV4cCI6MjA2MjMzNjY0Nn0.ZNx-7eQp9BcViuA1xdwflsFqX5R3ByfLcbOHPNrloa8'
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlyaGJlbG50dnNqb3R6dG5xd252Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3NjA2NDYsImV4cCI6MjA2MjMzNjY0Nn0.ZNx-7eQp9BcViuA1xdwflsFqX5R3ByfLcbOHPNrloa8',
+        {
+            db: { schema: 'public' },
+            auth: { persistSession: false }
+        }
       );
     </script>
     
@@ -350,6 +354,16 @@
             min-width: 80px;
         }
         
+        #connectionStatus {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            z-index: 1000;
+            display: none;
+        }
+        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -378,6 +392,7 @@
     </style>
 </head>
 <body>
+    <div id="connectionStatus"></div>
     <h1>捞那®卡头管理系统</h1>
     
     <form id="entryForm">
@@ -469,70 +484,46 @@
             'DISCOVER': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Discover_Card_logo.svg/1280px-Discover_Card_logo.svg.png'
         };
 
-        // 初始化
-        document.addEventListener('DOMContentLoaded', async () => {
+        // 测试数据库连接
+        async function testConnection() {
             try {
-                // 1. 检查表结构并自动修复
-                await checkAndFixTableStructure();
+                // 简单的ping测试
+                const { error } = await window.supabase
+                    .from('bin_records')
+                    .select('*')
+                    .limit(0); // 不返回实际数据
                 
-                // 2. 加载数据
-                await loadRecords();
-                initStatusButtons();
-                initForm();
-                initSearch();
-                initTableSorting();
-                initModal();
-                updateTable();
-                updateBinCount();
-            } catch (e) {
-                console.error('初始化失败:', e);
-                alert('系统初始化异常: ' + e.message);
-            }
-        });
-
-        // 表结构检查和修复
-        async function checkAndFixTableStructure() {
-            try {
-                // 检查表是否存在
-                const { data: tables, error } = await window.supabase
-                    .from('pg_tables')
-                    .select('tablename')
-                    .eq('tablename', 'bin_records');
-                
-                if (error) throw error;
-                
-                if (tables.length === 0) {
-                    await createTables();
-                    return;
+                if (error && error.code !== '42P01') { // 忽略表不存在错误
+                    throw error;
                 }
-
-                // 检查字段是否存在
-                const requiredColumns = [
-                    { name: 'scheme', type: 'text', default: '未知' },
-                    { name: 'brand', type: 'text', default: '未知' },
-                    { name: 'risk_desc', type: 'text', default: '未知' },
-                    { name: 'risk_note', type: 'text', default: '' }
-                ];
-
-                for (const col of requiredColumns) {
-                    const { data: columns } = await window.supabase
-                        .from('information_schema.columns')
-                        .select('column_name')
-                        .eq('table_name', 'bin_records')
-                        .eq('column_name', col.name);
-                    
-                    if (columns.length === 0) {
-                        await window.supabase.rpc('alter_table_add_column', {
-                            table_name: 'bin_records',
-                            column_name: col.name,
-                            data_type: col.type
-                        });
-                        console.log(`已添加缺失字段: ${col.name}`);
-                    }
-                }
+                return true;
             } catch (error) {
-                console.error('表结构检查失败:', error);
-                throw new Error('表结构自动修复失败，请手动检查数据库');
+                console.error('连接测试失败:', error);
+                throw new Error('无法连接到数据库服务');
+            }
+        }
+
+        // 检查连接状态并显示UI反馈
+        async function checkConnection() {
+            const statusEl = document.getElementById('connectionStatus');
+            try {
+                statusEl.style.display = 'block';
+                statusEl.style.backgroundColor = '#4CAF50';
+                statusEl.textContent = '正在连接数据库...';
+                
+                await testConnection();
+                
+                statusEl.style.backgroundColor = '#4CAF50';
+                statusEl.textContent = '数据库连接正常';
+                
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 3000);
+                return true;
+            } catch (error) {
+                statusEl.style.backgroundColor = '#F44336';
+                statusEl.textContent = '数据库连接失败';
+                throw error;
             }
         }
 
@@ -552,9 +543,39 @@
                 if (error && !error.message.includes('不存在')) throw error;
                 
                 console.log('表初始化完成');
+                return true;
             } catch (error) {
                 console.error('表创建失败:', error);
                 throw error;
+            }
+        }
+
+        // 检查并修复表结构
+        async function checkAndFixTableStructure() {
+            try {
+                // 1. 检查连接是否正常
+                await testConnection();
+                
+                // 2. 简化表检查逻辑
+                const { data, error } = await window.supabase
+                    .from('bin_records')
+                    .select('*')
+                    .limit(1);
+                    
+                if (error && error.code !== '42P01') { // 42P01 = 表不存在错误
+                    throw error;
+                }
+                
+                // 3. 如果表不存在则创建
+                if (error && error.code === '42P01') {
+                    await createTables();
+                }
+                
+                console.log('表结构检查完成');
+                return true;
+            } catch (error) {
+                console.error('表结构检查失败:', error);
+                throw new Error('数据库连接失败，请检查网络或配置');
             }
         }
 
@@ -592,92 +613,13 @@
                     return acc;
                 }, {}) || {};
                 
+                return true;
             } catch (error) {
                 console.error('加载记录失败:', error);
                 throw new Error('加载记录失败: ' + error.message);
             }
         }
-
-        // 保存记录
-        async function saveRecords() {
-            const saveBtn = document.getElementById('saveBtn');
-            try {
-                // 1. 设置按钮状态
-                saveBtn.disabled = true;
-                saveBtn.textContent = '保存中...';
-
-                // 2. 准备数据（带验证）
-                const recordsToSave = records.map(record => {
-                    if (!record.bin || !record.status) {
-                        throw new Error(`记录 ${JSON.stringify(record)} 缺少必要字段`);
-                    }
-                    
-                    return {
-                        bin: record.bin.padStart(6, '0').slice(0, 6), // 标准化BIN格式
-                        status: record.status,
-                        bank_name: record.bank_name || '未知银行',
-                        card_type: record.card_type || '未知类型',
-                        operator: record.operator || '匿名用户',
-                        note: record.note || '',
-                        created_at: record.created_at || new Date().toISOString(),
-                        scheme: record.scheme || '未知组织',
-                        brand: record.brand || '标准卡',
-                        risk_desc: record.risk_desc || '未知风险',
-                        risk_note: record.risk_note || '',
-                        ...(record.amount && { amount: record.amount })
-                    };
-                });
-
-                // 3. 执行保存（带重试机制）
-                let retries = 3;
-                let lastError = null;
-                
-                while (retries > 0) {
-                    try {
-                        const { error } = await window.supabase
-                            .from('bin_records')
-                            .upsert(recordsToSave, { 
-                                onConflict: 'bin,created_at' // 使用复合主键
-                            });
-
-                        if (error) throw error;
-                        
-                        // 成功时退出重试循环
-                        updateTable();
-                        showToast('保存成功！');
-                        return;
-                        
-                    } catch (error) {
-                        lastError = error;
-                        retries--;
-                        if (retries > 0) {
-                            await new Promise(resolve => setTimeout(resolve, 1000));
-                        }
-                    }
-                }
-                
-                // 重试失败后抛出最后错误
-                throw lastError;
-
-            } catch (error) {
-                console.error('保存失败:', error);
-                
-                const errorMsg = error.message.includes('network') 
-                    ? '网络连接失败，请检查网络后重试'
-                    : error.message.includes('存在') 
-                    ? '数据冲突，请刷新页面后重试'
-                    : error.message;
-                
-                showToast(`保存失败: ${errorMsg}`, true);
-                throw error;
-            } finally {
-                // 恢复按钮状态
-                saveBtn.disabled = false;
-                saveBtn.textContent = '添加记录';
-            }
-        }
-
-        // 显示提示
+                // 显示提示
         function showToast(message, isError = false) {
             const toast = document.createElement('div');
             toast.style = `
@@ -776,6 +718,7 @@
                     // 从记录中移除失败的条目
                     records = records.filter(r => r !== newRecord);
                     updateTable();
+                    showToast(`提交失败: ${error.message}`, true);
                 }
             });
         }
@@ -963,7 +906,6 @@
             
             records = [];
             binStats.forEach(bin => records.push(...bin.records));
-            saveRecords();
         }
 
         // 更新表格
@@ -1014,6 +956,59 @@
                 `;
                 tbody.appendChild(row);
             });
+        }
+
+        // 保存记录
+        async function saveRecords() {
+            const saveBtn = document.getElementById('saveBtn');
+            try {
+                saveBtn.disabled = true;
+                saveBtn.textContent = '保存中...';
+
+                // 分批处理记录 (避免一次性提交过多数据)
+                const batchSize = 10;
+                for (let i = 0; i < records.length; i += batchSize) {
+                    const batch = records.slice(i, i + batchSize);
+                    
+                    const { error } = await window.supabase
+                        .from('bin_records')
+                        .upsert(batch.map(record => ({
+                            bin: record.bin.padStart(6, '0').slice(0, 6),
+                            status: record.status,
+                            bank_name: record.bank_name || '未知银行',
+                            card_type: record.card_type || '未知类型',
+                            operator: record.operator || '匿名用户',
+                            note: record.note || '',
+                            created_at: record.created_at || new Date().toISOString(),
+                            scheme: record.scheme || '未知组织',
+                            brand: record.brand || '标准卡',
+                            risk_desc: record.risk_desc || '未知风险',
+                            risk_note: record.risk_note || '',
+                            ...(record.amount && { amount: record.amount })
+                        })), { 
+                            onConflict: 'bin,created_at' // 改为复合主键
+                        });
+
+                    if (error) throw error;
+                }
+                
+                updateTable();
+                showToast('保存成功！');
+            } catch (error) {
+                console.error('保存失败:', error);
+                
+                const errorMsg = error.code === '21000' 
+                    ? '数据冲突，请刷新页面后重试'
+                    : error.message.includes('network') 
+                    ? '网络连接失败，请检查网络后重试'
+                    : error.message;
+                
+                showToast(`保存失败: ${errorMsg}`, true);
+                throw error;
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '添加记录';
+            }
         }
 
         // 更新风险备注
@@ -1145,10 +1140,72 @@
             }
         }
 
+        // 主初始化函数
+        async function initializeApp() {
+            try {
+                // 显示加载状态
+                document.getElementById('binCountInfo').textContent = '初始化中...';
+                
+                // 1. 检查连接
+                await checkConnection();
+                
+                // 2. 检查表结构
+                await checkAndFixTableStructure();
+                
+                // 3. 加载数据
+                await loadRecords();
+                
+                // 4. 初始化UI组件
+                initStatusButtons();
+                initForm();
+                initSearch();
+                initTableSorting();
+                initModal();
+                
+                // 5. 更新视图
+                updateTable();
+                updateBinCount();
+                
+            } catch (e) {
+                console.error('初始化失败:', e);
+                document.getElementById('binCountInfo').textContent = '初始化失败';
+                
+                // 显示详细错误信息
+                const errorDetails = document.createElement('div');
+                errorDetails.style = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: white;
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+                    z-index: 1000;
+                    max-width: 80%;
+                `;
+                errorDetails.innerHTML = `
+                    <h3>系统初始化失败</h3>
+                    <p>${e.message}</p>
+                    <p>可能原因：</p>
+                    <ul>
+                        <li>网络连接问题</li>
+                        <li>Supabase服务不可用</li>
+                        <li>数据库权限问题</li>
+                    </ul>
+                    <button class="primary-btn" onclick="location.reload()" style="margin-top: 15px;">重试</button>
+                `;
+                document.body.appendChild(errorDetails);
+            }
+        }
+
         // 全局函数导出
         window.showBinDetails = showBinDetails;
         window.deleteRecord = deleteRecord;
         window.updateRiskNote = updateRiskNote;
+
+        // 启动应用
+        document.addEventListener('DOMContentLoaded', initializeApp);
     </script>
 </body>
 </html>
