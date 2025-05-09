@@ -9,7 +9,7 @@
             font-family: 'Arial', sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 1200px;
+            width: 85%;
             margin: 0 auto;
             padding: 20px;
             background-color: #f5f7fa;
@@ -30,8 +30,9 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             margin-bottom: 20px;
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: auto auto auto auto auto;
             gap: 15px;
+            align-items: center;
         }
         
         .form-group {
@@ -80,8 +81,7 @@
         }
         
         .statusBtn.active {
-            border-color: #4299e1;
-            background-color: #ebf8ff;
+            box-shadow: 0 0 0 2px #007bff inset;
         }
         
         .statusBtn.success {
@@ -109,7 +109,6 @@
             padding: 10px 15px;
             border-radius: 4px;
             font-weight: 600;
-            align-self: end;
         }
         
         .primary-btn:hover {
@@ -168,16 +167,23 @@
             font-weight: 600;
             position: sticky;
             top: 0;
+            white-space: nowrap;
         }
         
         #dataTable td {
             padding: 12px 15px;
             border-bottom: 1px solid #edf2f7;
             vertical-align: middle;
+            white-space: nowrap;
         }
         
         #dataTable tr:hover {
             background-color: #f8fafc;
+        }
+        
+        .bin-link-container {
+            position: relative;
+            display: inline-block;
         }
         
         .bin-link {
@@ -191,15 +197,18 @@
         }
         
         .bin-count {
-            background: #4299e1;
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: red;
             color: white;
             border-radius: 50%;
-            padding: 2px 6px;
-            font-size: 11px;
-            margin-left: 5px;
-            display: inline-block;
-            text-align: center;
-            min-width: 18px;
+            width: 18px;
+            height: 18px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .scheme-icon {
@@ -252,7 +261,7 @@
             margin: 5% auto;
             padding: 25px;
             border-radius: 8px;
-            width: 80%;
+            width: 70%;
             max-width: 800px;
             box-shadow: 0 5px 20px rgba(0,0,0,0.2);
             position: relative;
@@ -326,7 +335,8 @@
         }
         
         .search-result-label {
-            font-weight: 600;
+            font-weight: 6
+            00;
             color: #4a5568;
             min-width: 80px;
         }
@@ -405,6 +415,7 @@
                 <th data-sort="fail">失败</th>
                 <th data-sort="warning">异常</th>
                 <th data-sort="successRate">成功率</th>
+                <th>银行风控描述</th>
             </tr>
         </thead>
         <tbody></tbody>
@@ -489,7 +500,8 @@
                 cardType: '查询中...',
                 scheme: '查询中...',
                 brand: '查询中...',
-                riskDesc: '查询中...'
+                riskDesc: '查询中...',
+                riskNote: ''
             };
             
             records.push(newRecord);
@@ -758,21 +770,40 @@
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>
-                    <a href="javascript:void(0)" class="bin-link" onclick="showBinDetails('${bin}')">${bin}</a>
-                    <span class="bin-count">${binRecords.length}</span>
+                    <div class="bin-link-container">
+                        <a href="javascript:void(0)" class="bin-link" onclick="showBinDetails('${bin}')">${bin}</a>
+                        <span class="bin-count">${binRecords.length}</span>
+                    </div>
                 </td>
                 <td>${latestRecord.bankName}</td>
                 <td>${latestRecord.cardType}</td>
                 <td>${schemeIcon}${latestRecord.scheme}</td>
                 <td>${latestRecord.brand}</td>
-                <td class="risk-cell">${latestRecord.riskDesc}</td>
+                <td>${latestRecord.riskDesc}</td>
                 <td class="success-count">${stats.success}</td>
                 <td class="fail-count">${stats.fail}</td>
                 <td class="warning-count">${stats.warning}</td>
                 <td class="success-rate">${successRate}</td>
+                <td>
+                    <span class="risk-desc">${latestRecord.riskNote || '-'}</span>
+                    <button class="primary-btn" onclick="updateRiskNote('${bin}')" 
+                            style="padding: 3px 8px; font-size: 12px; margin-left: 5px;">更新</button>
+                </td>
             `;
             tbody.appendChild(row);
         });
+    }
+
+    function updateRiskNote(bin) {
+        const currentNote = records.find(r => r.bin === bin)?.riskNote || '';
+        const newNote = prompt('请输入银行风控描述', currentNote);
+        if (newNote !== null) {
+            records.forEach(r => {
+                if (r.bin === bin) r.riskNote = newNote;
+            });
+            saveRecords();
+            updateTable();
+        }
     }
 
     function updateBinCount() {
@@ -802,10 +833,8 @@
             warning: binRecords.filter(r => r.status === '异常').length
         };
         
-        const successRate = calculateSuccessRate(stats.success, stats.fail, stats.warning);
-        
         document.getElementById('modalTitle').innerHTML = `
-            BIN ${bin} 详情 <small>(${binRecords.length}条记录, 成功率: ${successRate})</small>
+            BIN ${bin} 详情 <small>(成功 ${stats.success}条, 失败 ${stats.fail}条, 异常 ${stats.warning}条)</small>
         `;
         
         let content = `
@@ -813,7 +842,8 @@
                 <strong>银行:</strong> ${binRecords[0].bankName}<br>
                 <strong>卡组织:</strong> ${binRecords[0].scheme}<br>
                 <strong>类型:</strong> ${binRecords[0].cardType} (${binRecords[0].brand})<br>
-                <strong>地区:</strong> ${binRecords[0].riskDesc}
+                <strong>地区:</strong> ${binRecords[0].riskDesc}<br>
+                <strong>风控描述:</strong> ${binRecords[0].riskNote || '无'}
             </div>
             <table class="detail-table">
                 <thead>
@@ -875,6 +905,7 @@
     // 全局函数
     window.showBinDetails = showBinDetails;
     window.deleteRecord = deleteRecord;
+    window.updateRiskNote = updateRiskNote;
 </script>
 </body>
 </html>
