@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>捞那®卡头管理系统</title>
+    <!-- 添加Supabase SDK -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+      // 初始化Supabase客户端
+      const supabaseUrl = 'https://irhbelntvsjotztnqwnv.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlyaGJlbG50dnNqb3R6dG5xd252Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3NjA2NDYsImV4cCI6MjA2MjMzNjY0Nn0.ZNx-7eQp9BcViuA1xdwflsFqX5R3ByfLcbOHPNrloa8';
+      const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+    </script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -196,10 +204,11 @@
             text-decoration: underline;
         }
         
+        /* 修改这里：将right从-8px改为-12px */
         .bin-count {
             position: absolute;
             top: -8px;
-            right: -8px;
+            right: -12px;  /* 调整了这个值 */
             background: red;
             color: white;
             border-radius: 50%;
@@ -335,8 +344,7 @@
         }
         
         .search-result-label {
-            font-weight: 6
-            00;
+            font-weight: 600;
             color: #4a5568;
             min-width: 80px;
         }
@@ -431,13 +439,11 @@
 
 <script>
     // 配置
-    const STORAGE_REC = 'binRecords';
-    const STORAGE_META = 'binMetadata';
     const IINAPI_KEY = "MlIDgiUwEvuMWgK6ok4h9msL9O7DsZm0"; // 替换为您的API密钥
     
     // 数据
-    let records = JSON.parse(localStorage.getItem(STORAGE_REC) || '[]');
-    let metaCache = JSON.parse(localStorage.getItem(STORAGE_META) || '{}');
+    let records = [];
+    let metaCache = {};
     let currentStatus = '';
     let sortConfig = { key: null, direction: 'asc' };
     
@@ -453,15 +459,79 @@
     };
 
     // 初始化
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
         initStatusButtons();
         initForm();
         initSearch();
         initTableSorting();
         initModal();
+        
+        // 从Supabase加载数据
+        await loadRecords();
         updateTable();
         updateBinCount();
     });
+
+    // 从Supabase加载记录
+    async function loadRecords() {
+        try {
+            const { data, error } = await supabase
+                .from('bin_records')
+                .select('*');
+            
+            if (error) throw error;
+            
+            records = data || [];
+            
+            // 加载元数据缓存
+            const { data: metaData } = await supabase
+                .from('bin_metadata')
+                .select('*');
+            
+            metaCache = metaData?.reduce((acc, item) => {
+                acc[item.bin] = item.data;
+                return acc;
+            }, {}) || {};
+            
+        } catch (error) {
+            console.error('加载记录失败:', error);
+            alert('加载记录失败: ' + error.message);
+        }
+    }
+
+    // 保存记录到Supabase
+    async function saveRecords() {
+        try {
+            // 先删除所有记录
+            const { error: deleteError } = await supabase
+                .from('bin_records')
+                .delete()
+                .neq('id', 0); // 删除所有记录
+            
+            if (deleteError) throw deleteError;
+            
+            // 重新插入所有记录
+            const { error: insertError } = await supabase
+                .from('bin_records')
+                .insert(records);
+            
+            if (insertError) throw insertError;
+            
+            // 保存元数据缓存
+            const metaRecords = Object.entries(metaCache).map(([bin, data]) => ({
+                bin,
+                data
+            }));
+            
+            await supabase
+                .from('bin_metadata')
+                .upsert(metaRecords);
+                
+        } catch (error) {
+            console.error('保存失败:', error);
+            alert('保存失败: ' + error.message);
+        }
+    }
 
     function initStatusButtons() {
         document.querySelectorAll('.statusBtn').forEach(btn => {
@@ -505,19 +575,19 @@
             };
             
             records.push(newRecord);
-            saveRecords();
+            await saveRecords();
             updateTable();
             updateBinCount();
             
             try {
                 const meta = await fetchMetadata(bin, true);
                 Object.assign(newRecord, meta);
-                saveRecords();
+                await saveRecords();
                 updateTable();
             } catch (error) {
                 newRecord.bankName = '查询失败';
                 newRecord.riskDesc = error.message;
-                saveRecords();
+                await saveRecords();
                 updateTable();
             }
             
@@ -566,7 +636,11 @@
             // 缓存结果
             if (saveToCache) {
                 metaCache[bin] = result;
-                localStorage.setItem(STORAGE_META, JSON.stringify(metaCache));
+                
+                // 保存到Supabase
+                await supabase
+                    .from('bin_metadata')
+                    .upsert([{ bin, data: result }]);
             }
 
             tempResult.innerHTML = '查询完成';
@@ -794,14 +868,14 @@
         });
     }
 
-    function updateRiskNote(bin) {
+    async function updateRiskNote(bin) {
         const currentNote = records.find(r => r.bin === bin)?.riskNote || '';
         const newNote = prompt('请输入银行风控描述', currentNote);
         if (newNote !== null) {
             records.forEach(r => {
                 if (r.bin === bin) r.riskNote = newNote;
             });
-            saveRecords();
+            await saveRecords();
             updateTable();
         }
     }
@@ -809,10 +883,6 @@
     function updateBinCount() {
         const uniqueBins = new Set(records.map(r => r.bin));
         document.getElementById('binCountInfo').textContent = `已记录 ${uniqueBins.size} 个BIN`;
-    }
-
-    function saveRecords() {
-        localStorage.setItem(STORAGE_REC, JSON.stringify(records));
     }
 
     function initModal() {
@@ -878,13 +948,13 @@
         modal.style.display = 'block';
     }
 
-    function deleteRecord(bin, time) {
+    async function deleteRecord(bin, time) {
         if (!confirm('确定删除这条记录吗？')) return;
         
         const index = records.findIndex(r => r.bin === bin && r.time === time);
         if (index >= 0) {
             records.splice(index, 1);
-            saveRecords();
+            await saveRecords();
             updateTable();
             updateBinCount();
             
