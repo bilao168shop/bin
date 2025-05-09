@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -6,10 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>捞那®卡头管理系统</title>
     
-    <!-- 修复1：确保SDK最先加载 -->
+    <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-      // 修复2：将supabase挂载到window对象
       window.supabase = supabase.createClient(
         'https://irhbelntvsjotztnqwnv.supabase.co',
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlyaGJlbG50dnNqb3R6dG5xd252Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3NjA2NDYsImV4cCI6MjA2MjMzNjY0Nn0.ZNx-7eQp9BcViuA1xdwflsFqX5R3ByfLcbOHPNrloa8'
@@ -17,7 +15,6 @@
     </script>
     
     <style>
-        /* 保持原有样式不变 */
         body {
             font-family: 'Arial', sans-serif;
             line-height: 1.6;
@@ -28,7 +25,346 @@
             background-color: #f5f7fa;
         }
         
-        /* ... 其他样式保持不变 ... */
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e1e5eb;
+        }
+        
+        #entryForm {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: auto auto auto auto auto;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group label {
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 14px;
+        }
+        
+        input, select {
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #4299e1;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+        }
+        
+        button {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        #statusOptions {
+            display: flex;
+            gap: 8px;
+            margin-top: 5px;
+        }
+        
+        .statusBtn {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .statusBtn.active {
+            box-shadow: 0 0 0 2px #007bff inset;
+        }
+        
+        .statusBtn.success {
+            background-color: #f0fff4;
+            color: #38a169;
+            border-color: #c6f6d5;
+        }
+        
+        .statusBtn.fail {
+            background-color: #fff5f5;
+            color: #e53e3e;
+            border-color: #fed7d7;
+        }
+        
+        .statusBtn.warning {
+            background-color: #fffaf0;
+            color: #dd6b20;
+            border-color: #feebc8;
+        }
+        
+        .primary-btn {
+            background-color: #4299e1;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        
+        .primary-btn:hover {
+            background-color: #3182ce;
+        }
+        
+        #searchContainer {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        
+        #searchInput {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+        
+        .bin-count-info {
+            background: #4a5568;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .temp-result {
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            background-color: #fffaf0;
+            border-left: 4px solid #f6ad55;
+        }
+        
+        .loading {
+            color: #718096;
+            font-style: italic;
+        }
+        
+        #dataTable {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+        
+        #dataTable th {
+            background-color: #2d3748;
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            white-space: nowrap;
+        }
+        
+        #dataTable td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #edf2f7;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        
+        #dataTable tr:hover {
+            background-color: #f8fafc;
+        }
+        
+        .bin-link-container {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .bin-link {
+            color: #4299e1;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .bin-link:hover {
+            text-decoration: underline;
+        }
+        
+        .bin-count {
+            position: absolute;
+            top: -8px;
+            right: -12px;
+            background: red;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .scheme-icon {
+            height: 20px;
+            vertical-align: middle;
+            margin-right: 5px;
+        }
+        
+        .success-count {
+            color: #38a169;
+            font-weight: 600;
+        }
+        
+        .fail-count {
+            color: #e53e3e;
+            font-weight: 600;
+        }
+        
+        .warning-count {
+            color: #dd6b20;
+            font-weight: 600;
+        }
+        
+        .success-rate {
+            color: #4299e1;
+            font-weight: 600;
+        }
+        
+        .risk-cell {
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            overflow: auto;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 25px;
+            border-radius: 8px;
+            width: 70%;
+            max-width: 800px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #718096;
+        }
+        
+        .close:hover {
+            color: #4a5568;
+        }
+        
+        .detail-table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+        
+        .detail-table th {
+            background: #4a5568;
+            color: white;
+            padding: 10px;
+            text-align: left;
+        }
+        
+        .detail-table td {
+            padding: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .status-badge {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            display: inline-block;
+        }
+        
+        .success-badge {
+            background-color: #f0fff4;
+            color: #38a169;
+        }
+        
+        .fail-badge {
+            background-color: #fff5f5;
+            color: #e53e3e;
+        }
+        
+        .warning-badge {
+            background-color: #fffaf0;
+            color: #dd6b20;
+        }
+        
+        .temp-search-result {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f8fafc;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .search-result-item {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .search-result-label {
+            font-weight: 6 00;
+            color: #4a5568;
+            min-width: 80px;
+        }
+        
+        @media (max-width: 768px) {
+            #entryForm {
+                grid-template-columns: 1fr;
+            }
+            
+            #dataTable {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .modal-content {
+                width: 95%;
+                padding: 15px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -104,7 +440,7 @@
 
 <script>
     // 配置
-    const IINAPI_KEY = "MlIDgiUwEvuMWgK6ok4h9msL9O7DsZm0"; // 替换为您的API密钥
+    const IINAPI_KEY = "MlIDgiUwEvuMWgK6ok4h9msL9O7DsZm0";
     
     // 数据
     let records = [];
@@ -126,7 +462,10 @@
     // 初始化
     document.addEventListener('DOMContentLoaded', async () => {
         try {
-            // 加载数据
+            // 1. 检查表结构并自动修复
+            await checkAndFixTableStructure();
+            
+            // 2. 加载数据
             await loadRecords();
             initStatusButtons();
             initForm();
@@ -141,18 +480,80 @@
         }
     });
 
-    // 从Supabase加载记录（适配你的表结构）
+    // 表结构检查和修复
+    async function checkAndFixTableStructure() {
+        try {
+            // 检查表是否存在
+            const { data: tableExists, error: tableError } = await window.supabase
+                .rpc('table_exists', { table_name: 'bin_records' });
+            
+            if (tableError || !tableExists) {
+                await createTables();
+                return;
+            }
+
+            // 检查缺失字段并自动添加
+            const requiredColumns = [
+                { name: 'scheme', type: 'text', default: '未知' },
+                { name: 'brand', type: 'text', default: '未知' },
+                { name: 'risk_desc', type: 'text', default: '未知' },
+                { name: 'risk_note', type: 'text', default: '' }
+            ];
+
+            for (const col of requiredColumns) {
+                const { data: colExists } = await window.supabase
+                    .rpc('column_exists', { 
+                        table_name: 'bin_records',
+                        column_name: col.name 
+                    });
+                
+                if (!colExists) {
+                    await window.supabase.rpc('add_column', {
+                        table_name: 'bin_records',
+                        column_name: col.name,
+                        column_type: col.type,
+                        default_value: col.default
+                    });
+                    console.log(`已添加缺失字段: ${col.name}`);
+                }
+            }
+        } catch (error) {
+            console.error('表结构检查失败:', error);
+            throw new Error('表结构自动修复失败，请手动添加缺失字段');
+        }
+    }
+
+    // 创建表（带所有必需字段）
+    async function createTables() {
+        await window.supabase.rpc('create_bin_tables');
+        console.log('表创建完成');
+    }
+
+    // 加载记录（带字段兼容处理）
     async function loadRecords() {
         try {
+            // 1. 加载主记录
             const { data, error } = await window.supabase
                 .from('bin_records')
-                .select('bin, status, bank_name, card_type, operator, note, created_at, scheme, brand, risk_desc, risk_note');
+                .select('*');
             
             if (error) throw error;
             
-            records = data || [];
+            // 2. 字段兼容处理
+            records = (data || []).map(record => ({
+                ...record,
+                // 确保所有字段都有默认值
+                bank_name: record.bank_name || '未知',
+                card_type: record.card_type || '未知',
+                scheme: record.scheme || '未知',
+                brand: record.brand || '未知',
+                risk_desc: record.risk_desc || '未知',
+                risk_note: record.risk_note || '',
+                // 兼容旧版time字段
+                created_at: record.created_at || record.time || new Date().toISOString()
+            }));
             
-            // 加载元数据缓存
+            // 3. 加载元数据
             const { data: metaData } = await window.supabase
                 .from('bin_metadata')
                 .select('*');
@@ -168,28 +569,26 @@
         }
     }
 
-    // 保存记录到Supabase（适配你的表结构）
+    // 保存记录（自动转换字段格式）
     async function saveRecords() {
         try {
-            // 转换为你的表结构字段
-            const formattedRecords = records.map(record => ({
+            const recordsToSave = records.map(record => ({
                 bin: record.bin,
                 status: record.status,
-                bank_name: record.bank_name || null,
-                card_type: record.card_type || null,
+                bank_name: record.bank_name,
+                card_type: record.card_type,
                 operator: record.operator,
                 note: record.note,
-                created_at: record.created_at || new Date().toISOString(),
-                scheme: record.scheme || '未知',
-                brand: record.brand || '未知',
-                risk_desc: record.risk_desc || '未知',
-                risk_note: record.risk_note || ''
+                created_at: record.created_at,
+                scheme: record.scheme,
+                brand: record.brand,
+                risk_desc: record.risk_desc,
+                risk_note: record.risk_note
             }));
             
-            // 批量更新
             const { error } = await window.supabase
                 .from('bin_records')
-                .upsert(formattedRecords, { onConflict: ['bin'] });
+                .upsert(recordsToSave, { onConflict: ['bin'] });
             
             if (error) throw error;
             
@@ -244,7 +643,6 @@
                 updateTable();
                 updateBinCount();
                 
-                // 获取BIN元数据
                 const meta = await fetchMetadata(bin, true);
                 Object.assign(newRecord, {
                     bank_name: meta.bankName,
@@ -268,32 +666,18 @@
     }
 
     async function fetchMetadata(bin, saveToCache = true) {
-        // 检查本地缓存
-        if (metaCache[bin]) {
-            console.log('从缓存获取BIN数据:', bin);
-            return metaCache[bin];
-        }
+        if (metaCache[bin]) return metaCache[bin];
 
         const tempResult = document.getElementById('tempResult');
         tempResult.innerHTML = '<span class="loading">正在查询BIN信息...</span>';
 
         try {
-            console.log('正在查询BIN:', bin);
             const response = await fetch(`https://api.iinapi.com/iin?key=${IINAPI_KEY}&digits=${bin}`);
-            
-            console.log('API响应状态:', response.status);
-            if (!response.ok) {
-                throw new Error(`API请求失败: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`API请求失败: ${response.status}`);
 
             const data = await response.json();
-            console.log('API响应数据:', data);
-            
-            if (!data.valid || !data.result) {
-                throw new Error('无效的BIN数据');
-            }
+            if (!data.valid || !data.result) throw new Error('无效的BIN数据');
 
-            // 转换数据格式
             const result = {
                 bankName: data.result.IssuingInstitution || '未知银行',
                 cardType: data.result.CardType === 'DEBIT' ? '借记卡' : 
@@ -303,11 +687,8 @@
                 riskDesc: `${data.result.IssuingCountry || '未知国家'} (${data.result.IssuingCountryCode || 'XX'})`
             };
 
-            // 缓存结果
             if (saveToCache) {
                 metaCache[bin] = result;
-                
-                // 保存到Supabase
                 await window.supabase
                     .from('bin_metadata')
                     .upsert([{ bin, data: result }]);
@@ -419,10 +800,7 @@
     function sortRecords() {
         if (!sortConfig.key) return;
         
-        // 获取所有唯一BIN
         const uniqueBins = [...new Set(records.map(r => r.bin))];
-        
-        // 为每个BIN计算统计信息
         const binStats = uniqueBins.map(bin => {
             const binRecords = records.filter(r => r.bin === bin);
             const latestRecord = binRecords.reduce((latest, current) => 
@@ -444,30 +822,15 @@
             };
         });
         
-        // 排序逻辑
         binStats.sort((a, b) => {
             let valA, valB;
             
             switch(sortConfig.key) {
-                case 'successRate':
-                    valA = a.successRate;
-                    valB = b.successRate;
-                    break;
-                case 'success':
-                    valA = a.stats.success;
-                    valB = b.stats.success;
-                    break;
-                case 'fail':
-                    valA = a.stats.fail;
-                    valB = b.stats.fail;
-                    break;
-                case 'warning':
-                    valA = a.stats.warning;
-                    valB = b.stats.warning;
-                    break;
-                default:
-                    valA = a.latestRecord[sortConfig.key];
-                    valB = b.latestRecord[sortConfig.key];
+                case 'successRate': valA = a.successRate; valB = b.successRate; break;
+                case 'success': valA = a.stats.success; valB = b.stats.success; break;
+                case 'fail': valA = a.stats.fail; valB = b.stats.fail; break;
+                case 'warning': valA = a.stats.warning; valB = b.stats.warning; break;
+                default: valA = a.latestRecord[sortConfig.key]; valB = b.latestRecord[sortConfig.key];
             }
             
             if (typeof valA === 'string') valA = valA.toLowerCase();
@@ -478,12 +841,8 @@
                    (valA > valB ? -1 : valA < valB ? 1 : 0);
         });
         
-        // 重新组合记录
         records = [];
-        binStats.forEach(bin => {
-            records.push(...bin.records);
-        });
-        
+        binStats.forEach(bin => records.push(...bin.records));
         saveRecords();
     }
 
@@ -491,9 +850,7 @@
         const tbody = document.querySelector('#dataTable tbody');
         tbody.innerHTML = '';
         
-        // 获取所有唯一BIN
         const uniqueBins = [...new Set(data.map(r => r.bin))];
-        
         uniqueBins.forEach(bin => {
             const binRecords = data.filter(r => r.bin === bin);
             const latestRecord = binRecords.reduce((latest, current) => 
@@ -628,7 +985,6 @@
             updateTable();
             updateBinCount();
             
-            // 如果删除了该BIN的最后一条记录，关闭模态框
             if (!records.some(r => r.bin === bin)) {
                 document.getElementById('detailModal').style.display = 'none';
             } else {
