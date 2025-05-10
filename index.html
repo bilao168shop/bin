@@ -663,14 +663,15 @@
     };
 
     // 初始化Supabase客户端
-    window.supabase = supabase.createClient(
-        'https://irhbelntvsjotztnqwnv.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlyaGJlbG50dnNqb3R6dG5xd252Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3NjA2NDYsImV4cCI6MjA2MjMzNjY0Nn0.ZNx-7eQp9BcViuA1xdwflsFqX5R3ByfLcbOHPNrloa8',
-        {
-            db: { schema: 'public' },
-            auth: { persistSession: false }
-        }
-    );
+    // 初始化Supabase客户端（修复后的版本）
+window.supabase = supabase.createClient(
+    'https://irhbelntvsjotztnqwnv.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlyaGJlbG50dnNqb3R6dG5xd252Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3NjA2NDYsImV4cCI6MjA2MjMzNjY0Nn0.ZNx-7eQp9BcViuA1xdwflsFqX5R3ByfLcbOHPNrloa8',
+    {
+        db: { schema: 'public' },
+        auth: { persistSession: false }
+    }
+);
 
     // 测试数据库连接
     async function testConnection() {
