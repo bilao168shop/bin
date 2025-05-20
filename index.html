@@ -558,7 +558,6 @@
 <body>
     <div id="connectionStatus"></div>
     <h1>捞那®卡头管理系统</h1>
-    
     <form id="entryForm">
         <div class="form-row">
             <div class="form-group">
@@ -597,7 +596,6 @@
                 <input type="file" id="fileUpload" accept=".xlsx,.xls">
             </div>
         </div>
-        
         <div class="search-container">
             <input type="text" id="searchInput" placeholder="搜索卡头...">
             <span class="bin-count-info" id="binCountInfo">加载中...</span>
@@ -627,8 +625,7 @@
             <!-- 数据将通过JavaScript动态填充 -->
         </tbody>
     </table>
-
-    <div id="detailModal" class="modal">
+        <div id="detailModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
             <h2 id="modalTitle">BIN详情</h2>
@@ -884,375 +881,317 @@
             }
         });
     }
-                // 更新表格数据
-        function updateTable() {
-            const tbody = document.querySelector('#dataTable tbody');
-            tbody.innerHTML = '';
+    // ...剩余初始化、业务、模态等函数见下一段...
+    </script>
+</body>
+</html>
+    <script>
+    // ...前面内容见上一段...
 
-            // 按当前排序配置排序记录
-            const sortedRecords = [...records].sort((a, b) => {
-                if (sortConfig.key === 'successRate') {
-                    const rateA = (a.success || 0) / ((a.success || 0) + (a.fail || 0) + (a.warning || 0)) || 0;
-                    const rateB = (b.success || 0) / ((b.success || 0) + (b.fail || 0) + (b.warning || 0)) || 0;
-                    return sortConfig.direction === 'asc' ? rateA - rateB : rateB - rateA;
-                }
-                
-                const valueA = a[sortConfig.key] || '';
-                const valueB = b[sortConfig.key] || '';
-                return sortConfig.direction === 'asc' 
-                    ? String(valueA).localeCompare(String(valueB))
-                    : String(valueB).localeCompare(String(valueA));
-            });
+    // 更新表格数据
+    function updateTable() {
+        const tbody = document.querySelector('#dataTable tbody');
+        tbody.innerHTML = '';
 
-            // 填充表格行
-            sortedRecords.forEach(record => {
-                const tr = document.createElement('tr');
-                
-                // 计算成功率
-                const total = (record.success || 0) + (record.fail || 0) + (record.warning || 0);
-                const successRate = total > 0 
-                    ? Math.round((record.success / total) * 100) + '%' 
-                    : '0%';
+        // 按当前排序配置排序记录
+        const sortedRecords = [...records].sort((a, b) => {
+            if (sortConfig.key === 'successRate') {
+                const rateA = (a.success || 0) / ((a.success || 0) + (a.fail || 0) + (a.warning || 0)) || 0;
+                const rateB = (b.success || 0) / ((b.success || 0) + (b.fail || 0) + (b.warning || 0)) || 0;
+                return sortConfig.direction === 'asc' ? rateA - rateB : rateB - rateA;
+            }
 
-                // 卡头列
-                const binTd = document.createElement('td');
-                const binLink = document.createElement('a');
-                binLink.href = '#';
-                binLink.className = 'bin-link';
-                binLink.textContent = record.bin;
-                binLink.addEventListener('click', () => showDetailModal(record.bin));
-                
-                const binCount = document.createElement('span');
-                binCount.className = 'bin-count';
-                binCount.textContent = total;
-                
-                binTd.appendChild(binLink);
-                binTd.appendChild(binCount);
-                tr.appendChild(binTd);
+            const valueA = a[sortConfig.key] || '';
+            const valueB = b[sortConfig.key] || '';
+            return sortConfig.direction === 'asc'
+                ? String(valueA).localeCompare(String(valueB))
+                : String(valueB).localeCompare(String(valueA));
+        });
 
-                // 银行列
-                const bankTd = document.createElement('td');
-                bankTd.textContent = record.bank_name;
-                tr.appendChild(bankTd);
+        // 填充表格行
+        sortedRecords.forEach(record => {
+            const tr = document.createElement('tr');
 
-                // 卡类型列
-                const cardTypeTd = document.createElement('td');
-                cardTypeTd.textContent = record.card_type;
-                tr.appendChild(cardTypeTd);
+            // 计算成功率
+            const total = (record.success || 0) + (record.fail || 0) + (record.warning || 0);
+            const successRate = total > 0
+                ? Math.round((record.success / total) * 100) + '%'
+                : '0%';
 
-                // 卡组织列
-                const schemeTd = document.createElement('td');
-                if (schemeIcons[record.scheme]) {
-                    const icon = document.createElement('img');
-                    icon.src = schemeIcons[record.scheme];
-                    icon.className = 'scheme-icon';
-                    icon.alt = record.scheme;
-                    schemeTd.appendChild(icon);
-                }
-                schemeTd.appendChild(document.createTextNode(record.scheme));
-                tr.appendChild(schemeTd);
+            // 卡头列
+            const binTd = document.createElement('td');
+            const binLink = document.createElement('a');
+            binLink.href = '#';
+            binLink.className = 'bin-link';
+            binLink.textContent = record.bin;
+            binLink.addEventListener('click', () => showDetailModal(record.bin));
+            const binCount = document.createElement('span');
+            binCount.className = 'bin-count';
+            binCount.textContent = total;
+            binTd.appendChild(binLink);
+            binTd.appendChild(binCount);
+            tr.appendChild(binTd);
 
-                // 品牌列
-                const brandTd = document.createElement('td');
-                brandTd.textContent = record.brand;
-                tr.appendChild(brandTd);
+            const bankTd = document.createElement('td');
+            bankTd.textContent = record.bank_name;
+            tr.appendChild(bankTd);
 
-                // 地区列
-                const riskTd = document.createElement('td');
-                riskTd.textContent = record.risk_desc;
-                tr.appendChild(riskTd);
+            const cardTypeTd = document.createElement('td');
+            cardTypeTd.textContent = record.card_type;
+            tr.appendChild(cardTypeTd);
 
-                // 成功数列
-                const successTd = document.createElement('td');
-                successTd.className = 'success-count';
-                successTd.textContent = record.success || 0;
-                tr.appendChild(successTd);
+            const schemeTd = document.createElement('td');
+            if (schemeIcons[record.scheme]) {
+                const icon = document.createElement('img');
+                icon.src = schemeIcons[record.scheme];
+                icon.className = 'scheme-icon';
+                icon.alt = record.scheme;
+                schemeTd.appendChild(icon);
+            }
+            schemeTd.appendChild(document.createTextNode(record.scheme));
+            tr.appendChild(schemeTd);
 
-                // 失败数列
-                const failTd = document.createElement('td');
-                failTd.className = 'fail-count';
-                failTd.textContent = record.fail || 0;
-                tr.appendChild(failTd);
+            const brandTd = document.createElement('td');
+            brandTd.textContent = record.brand;
+            tr.appendChild(brandTd);
 
-                // 异常数列
-                const warningTd = document.createElement('td');
-                warningTd.className = 'warning-count';
-                warningTd.textContent = record.warning || 0;
-                tr.appendChild(warningTd);
+            const riskTd = document.createElement('td');
+            riskTd.textContent = record.risk_desc;
+            tr.appendChild(riskTd);
 
-                // 成功率列
-                const rateTd = document.createElement('td');
-                rateTd.className = 'success-rate';
-                rateTd.textContent = successRate;
-                tr.appendChild(rateTd);
+            const successTd = document.createElement('td');
+            successTd.className = 'success-count';
+            successTd.textContent = record.success || 0;
+            tr.appendChild(successTd);
 
-                // 风控备注列
-                const noteTd = document.createElement('td');
-                noteTd.textContent = record.risk_note || '';
-                tr.appendChild(noteTd);
+            const failTd = document.createElement('td');
+            failTd.className = 'fail-count';
+            failTd.textContent = record.fail || 0;
+            tr.appendChild(failTd);
 
-                tbody.appendChild(tr);
-            });
+            const warningTd = document.createElement('td');
+            warningTd.className = 'warning-count';
+            warningTd.textContent = record.warning || 0;
+            tr.appendChild(warningTd);
 
-            // 更新BIN计数
-            updateBinCount();
-        }
+            const rateTd = document.createElement('td');
+            rateTd.className = 'success-rate';
+            rateTd.textContent = successRate;
+            tr.appendChild(rateTd);
 
-        // 更新BIN计数显示
-        function updateBinCount() {
-            const uniqueBins = new Set(records.map(r => r.bin)).size;
-            document.getElementById('binCountInfo').textContent = `已记录 ${uniqueBins} 个BIN`;
-        }
+            const noteTd = document.createElement('td');
+            noteTd.textContent = record.risk_note || '';
+            tr.appendChild(noteTd);
 
-        // 初始化表格排序
-        function initTableSorting() {
-            document.querySelectorAll('#dataTable th[data-sort]').forEach(th => {
-                th.addEventListener('click', () => {
-                    const key = th.dataset.sort;
-                    if (sortConfig.key === key) {
-                        sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
-                    } else {
-                        sortConfig.key = key;
-                        sortConfig.direction = 'asc';
-                    }
-                    
-                    // 更新排序指示器
-                    document.querySelectorAll('#dataTable th').forEach(h => {
-                        h.classList.remove('sort-asc', 'sort-desc');
-                    });
-                    th.classList.add(`sort-${sortConfig.direction}`);
-                    
-                    updateTable();
-                });
-            });
-        }
+            tbody.appendChild(tr);
+        });
 
-        // 初始化搜索功能
-        function initSearch() {
-            const searchInput = document.getElementById('searchInput');
-            const searchResult = document.getElementById('tempSearchResult');
-            
-            searchInput.addEventListener('input', () => {
-                const query = searchInput.value.trim().toLowerCase();
-                if (query.length < 3) {
-                    searchResult.style.display = 'none';
-                    return;
-                }
-                
-                // 搜索BIN、银行、卡类型、卡组织、地区
-                const results = records.filter(r => 
-                    r.bin.includes(query) ||
-                    r.bank_name.toLowerCase().includes(query) ||
-                    r.card_type.toLowerCase().includes(query) ||
-                    r.scheme.toLowerCase().includes(query) ||
-                    r.risk_desc.toLowerCase().includes(query)
-                );
-                
-                if (results.length > 0) {
-                    searchResult.innerHTML = results.slice(0, 5).map(r => `
-                        <div class="search-result-item">
-                            <span class="search-result-label">BIN:</span> ${r.bin}
-                            <span class="search-result-label">银行:</span> ${r.bank_name}
-                            <span class="search-result-label">卡类型:</span> ${r.card_type}
-                            <span class="search-result-label">卡组织:</span> ${r.scheme}
-                            <span class="search-result-label">地区:</span> ${r.risk_desc}
-                        </div>
-                    `).join('');
-                    searchResult.style.display = 'block';
+        // 更新BIN计数
+        updateBinCount();
+    }
+
+    function updateBinCount() {
+        const uniqueBins = new Set(records.map(r => r.bin)).size;
+        document.getElementById('binCountInfo').textContent = `已记录 ${uniqueBins} 个BIN`;
+    }
+
+    function initTableSorting() {
+        document.querySelectorAll('#dataTable th[data-sort]').forEach(th => {
+            th.addEventListener('click', () => {
+                const key = th.dataset.sort;
+                if (sortConfig.key === key) {
+                    sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
                 } else {
-                    searchResult.innerHTML = '<div class="search-result-item">没有找到匹配的BIN</div>';
-                    searchResult.style.display = 'block';
+                    sortConfig.key = key;
+                    sortConfig.direction = 'asc';
                 }
+                
+                document.querySelectorAll('#dataTable th').forEach(h => {
+                    h.classList.remove('sort-asc', 'sort-desc');
+                });
+                th.classList.add(`sort-${sortConfig.direction}`);
+                updateTable();
             });
-            
-            // 点击搜索结果外的区域关闭搜索结果
-            document.addEventListener('click', (e) => {
-                if (!searchInput.contains(e.target) && !searchResult.contains(e.target)) {
-                    searchResult.style.display = 'none';
-                }
-            });
-        }
+        });
+    }
 
-        // 显示详情模态框
-        async function showDetailModal(bin) {
-            const modal = document.getElementById('detailModal');
-            const modalTitle = document.getElementById('modalTitle');
-            const modalContent = document.getElementById('modalContent');
-            
-            modalTitle.textContent = `BIN详情 - ${bin}`;
-            
-            // 获取该BIN的所有记录
-            const { data: detailRecords, error } = await window.supabase
-                .from('bin_records')
-                .select('*')
-                .eq('bin', bin)
-                .order('created_at', { ascending: false });
-            
-            if (error) {
-                modalContent.innerHTML = `<p class="error">加载详情失败: ${error.message}</p>`;
-                modal.style.display = 'block';
+    function initSearch() {
+        const searchInput = document.getElementById('searchInput');
+        const searchResult = document.getElementById('tempSearchResult');
+        
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.trim().toLowerCase();
+            if (query.length < 3) {
+                searchResult.style.display = 'none';
                 return;
             }
             
-            // 获取元数据
-            const meta = metaCache[bin] || await fetchMetadata(bin, false) || {
-                bankName: '未知',
-                cardType: '未知',
-                scheme: '未知',
-                brand: '未知',
-                riskDesc: '未知'
-            };
+            const results = records.filter(r => 
+                r.bin.includes(query) ||
+                r.bank_name.toLowerCase().includes(query) ||
+                r.card_type.toLowerCase().includes(query) ||
+                r.scheme.toLowerCase().includes(query) ||
+                r.risk_desc.toLowerCase().includes(query)
+            );
             
-            // 构建详情内容
-            modalContent.innerHTML = `
-                <div class="bank-info-card">
-                    <div class="bank-info-left">
-                        <div class="bank-info-item">
-                            <span class="bank-info-label">银行:</span>
-                            <span class="bank-info-value">${meta.bankName}</span>
-                        </div>
-                        <div class="bank-info-item">
-                            <span class="bank-info-label">卡组织:</span>
-                            <span class="bank-info-value">${meta.scheme}</span>
-                        </div>
-                        <div class="bank-info-item">
-                            <span class="bank-info-label">卡类型:</span>
-                            <span class="bank-info-value">${meta.cardType}</span>
-                        </div>
-                        <div class="bank-info-item">
-                            <span class="bank-info-label">地区:</span>
-                            <span class="bank-info-value">${meta.riskDesc}</span>
-                        </div>
+            if (results.length > 0) {
+                searchResult.innerHTML = results.slice(0, 5).map(r => `
+                    <div class="search-result-item">
+                        <span class="search-result-label">BIN:</span> ${r.bin}
+                        <span class="search-result-label">银行:</span> ${r.bank_name}
+                        <span class="search-result-label">卡类型:</span> ${r.card_type}
+                        <span class="search-result-label">卡组织:</span> ${r.scheme}
+                        <span class="search-result-label">地区:</span> ${r.risk_desc}
                     </div>
-                    <div class="bank-info-right">
-                        <h3>风控备注</h3>
-                        <textarea class="bank-note-textarea" id="detailRiskNote">${detailRecords[0]?.risk_note || ''}</textarea>
-                        <button class="primary-btn" id="saveRiskNote">保存备注</button>
+                `).join('');
+                searchResult.style.display = 'block';
+            } else {
+                searchResult.innerHTML = '<div class="search-result-item">没有找到匹配的BIN</div>';
+                searchResult.style.display = 'block';
+            }
+        });
+        
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !searchResult.contains(e.target)) {
+                searchResult.style.display = 'none';
+            }
+        });
+    }
+
+    async function showDetailModal(bin) {
+        const modal = document.getElementById('detailModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalContent = document.getElementById('modalContent');
+        
+        modalTitle.textContent = `BIN详情 - ${bin}`;
+        
+        const { data: detailRecords, error } = await window.supabase
+            .from('bin_records')
+            .select('*')
+            .eq('bin', bin)
+            .order('created_at', { ascending: false });
+        
+        if (error) {
+            modalContent.innerHTML = `<p class="error">加载详情失败: ${error.message}</p>`;
+            modal.style.display = 'block';
+            return;
+        }
+        
+        const meta = metaCache[bin] || {};
+        
+        modalContent.innerHTML = `
+            <div class="bank-info-card">
+                <div class="bank-info-left">
+                    <div class="bank-info-item">
+                        <span class="bank-info-label">银行:</span>
+                        <span class="bank-info-value">${meta.bankName || detailRecords[0]?.bank_name || '未知'}</span>
+                    </div>
+                    <div class="bank-info-item">
+                        <span class="bank-info-label">卡组织:</span>
+                        <span class="bank-info-value">${meta.scheme || detailRecords[0]?.scheme || '未知'}</span>
+                    </div>
+                    <div class="bank-info-item">
+                        <span class="bank-info-label">卡类型:</span>
+                        <span class="bank-info-value">${meta.cardType || detailRecords[0]?.card_type || '未知'}</span>
+                    </div>
+                    <div class="bank-info-item">
+                        <span class="bank-info-label">地区:</span>
+                        <span class="bank-info-value">${meta.riskDesc || detailRecords[0]?.risk_desc || '未知'}</span>
                     </div>
                 </div>
-                <table class="detail-table">
-                    <thead>
+                <div class="bank-info-right">
+                    <h3>风控备注</h3>
+                    <textarea class="bank-note-textarea" id="detailRiskNote">${detailRecords[0]?.risk_note || ''}</textarea>
+                    <button class="primary-btn" id="saveRiskNote">保存备注</button>
+                </div>
+            </div>
+            <table class="detail-table">
+                <thead>
+                    <tr>
+                        <th>时间</th>
+                        <th>状态</th>
+                        <th>操作人</th>
+                        <th>金额</th>
+                        <th>备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${detailRecords.map(r => `
                         <tr>
-                            <th>时间</th>
-                            <th>状态</th>
-                            <th>操作人</th>
-                            <th>金额</th>
-                            <th>备注</th>
+                            <td>${new Date(r.created_at).toLocaleString()}</td>
+                            <td>
+                                <span class="status-badge ${r.status === '成功' ? 'success-badge' : 
+                                    r.status === '失败' ? 'fail-badge' : 'warning-badge'}">
+                                    ${r.status}
+                                </span>
+                            </td>
+                            <td>${r.operator}</td>
+                            <td>${r.amount || '-'}</td>
+                            <td>${r.note || '-'}</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        ${detailRecords.map(r => `
-                            <tr>
-                                <td>${new Date(r.created_at).toLocaleString()}</td>
-                                <td>
-                                    <span class="status-badge ${r.status === '成功' ? 'success-badge' : 
-                                        r.status === '失败' ? 'fail-badge' : 'warning-badge'}">
-                                        ${r.status}
-                                    </span>
-                                </td>
-                                <td>${r.operator}</td>
-                                <td>${r.amount || '-'}</td>
-                                <td>${r.note || '-'}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-            
-            // 初始化保存备注按钮
-            document.getElementById('saveRiskNote').addEventListener('click', async () => {
-                const note = document.getElementById('detailRiskNote').value;
-                try {
-                    await window.supabase
-                        .from('bin_records')
-                        .update({ risk_note: note })
-                        .eq('bin', bin);
-                    
-                    // 更新本地记录
-                    records.forEach(r => {
-                        if (r.bin === bin) {
-                            r.risk_note = note;
-                        }
-                    });
-                    
-                    showToast('备注保存成功');
-                    updateTable();
-                } catch (error) {
-                    showToast('保存备注失败', true);
-                    console.error('保存备注失败:', error);
-                }
-            });
-            
-            modal.style.display = 'block';
-            
-            // 关闭按钮事件
-            document.querySelector('#detailModal .close').addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-            
-            // 点击模态框外部关闭
-            window.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.style.display = 'none';
-                }
-            });
-        }
-                // 主初始化函数
-        async function initializeApp() {
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+        
+        document.getElementById('saveRiskNote').addEventListener('click', async () => {
+            const note = document.getElementById('detailRiskNote').value;
             try {
-                // 显示加载状态
-                document.getElementById('binCountInfo').textContent = '初始化中...';
+                await window.supabase
+                    .from('bin_records')
+                    .update({ risk_note: note })
+                    .eq('bin', bin);
                 
-                // 1. 检查连接
-                await checkConnection();
+                records.forEach(r => {
+                    if (r.bin === bin) r.risk_note = note;
+                });
                 
-                // 2. 检查并修复表结构
-                await checkAndFixTableStructure();
-                
-                // 3. 加载数据
-                await loadRecords();
-                
-                // 4. 初始化UI组件
-                initStatusButtons();
-                initForm();
-                initSearch();
-                initTableSorting();
-                initModal();
-                initFileUpload();
-                initBinInputAutoDetect();
-                
-                // 5. 更新视图
+                showToast('备注保存成功');
                 updateTable();
-                updateBinCount();
-                
             } catch (error) {
-                console.error('初始化失败:', error);
-                document.getElementById('binCountInfo').textContent = '初始化失败';
-                
-                showErrorDialog(`
-                    <h3>系统初始化失败</h3>
-                    <p>${error.message}</p>
-                    <p>可能原因：</p>
-                    <ul>
-                        <li>数据库表结构问题</li>
-                        <li>网络连接问题</li>
-                        <li>权限不足</li>
-                    </ul>
-                    <button class="primary-btn" onclick="location.reload()">重试</button>
-                    <button class="secondary-btn" onclick="resetDatabase()" style="margin-left:10px;">重置数据库</button>
-                `);
+                showToast('保存备注失败', true);
+                console.error('保存备注失败:', error);
             }
+        });
+        
+        modal.style.display = 'block';
+        document.querySelector('#detailModal .close').onclick = () => {
+            modal.style.display = 'none';
+        };
+        window.onclick = function(event) {
+            if (event.target === modal) modal.style.display = "none";
+        };
+    }
+
+    async function initializeApp() {
+        try {
+            document.getElementById('binCountInfo').textContent = '初始化中...';
+            
+            await checkConnection();
+            await checkAndFixTableStructure();
+            await loadRecords();
+            initStatusButtons();
+            setupInputAutoFill();
+            initSearch();
+            initTableSorting();
+            updateTable();
+        } catch (error) {
+            document.getElementById('binCountInfo').textContent = '初始化失败';
+            showErrorDialog(`
+                <h3>系统初始化失败</h3>
+                <p>${error.message}</p>
+                <p>可能原因：</p>
+                <ul>
+                    <li>数据库表结构问题</li>
+                    <li>网络连接问题</li>
+                    <li>权限不足</li>
+                </ul>
+                <button class="primary-btn" onclick="location.reload()">重试</button>
+            `);
         }
+    }
 
-        // 全局函数导出
-        window.showBinDetails = showBinDetails;
-        window.deleteRecord = deleteRecord;
-        window.updateRiskNote = updateRiskNote;
-        window.resetDatabase = resetDatabase;
-        window.saveBankNote = saveBankNote;
-
-        // 启动应用
-        document.addEventListener('DOMContentLoaded', initializeApp);
+    document.addEventListener('DOMContentLoaded', initializeApp);
     </script>
 </body>
 </html>
