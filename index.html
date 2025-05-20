@@ -57,6 +57,7 @@
             margin: 10px auto;
         }
         
+        /* 修改后的表单布局 */
         #entryForm {
             background: white;
             padding: 12px 15px;
@@ -112,6 +113,7 @@
             height: 36px;
         }
         
+        /* 修改后的状态按钮 */
         .status-buttons {
             display: flex;
             gap: 6px;
@@ -166,6 +168,7 @@
             background-color: #3a56c4;
         }
         
+        /* 搜索区域样式 */
         .search-container {
             display: flex;
             align-items: center;
@@ -191,6 +194,7 @@
             white-space: nowrap;
         }
         
+        /* 搜索结果样式 */
         #tempSearchResult {
             display: none;
             background: white;
@@ -214,6 +218,7 @@
             margin-right: 10px;
         }
         
+        /* 以下所有原有样式完全保持不变 */
         #dataTable {
             width: 100%;
             border-collapse: collapse;
@@ -430,6 +435,7 @@
             to { opacity: 0; transform: translateY(-10px); }
         }
         
+        /* 银行信息卡片样式 */
         .bank-info-card {
             display: flex;
             justify-content: space-between;
@@ -474,6 +480,7 @@
             font-size: 14px;
         }
         
+        /* 上传按钮样式 */
         .upload-btn-wrapper {
             position: relative;
             display: inline-block;
@@ -506,6 +513,7 @@
             cursor: pointer;
         }
         
+        /* 响应式设计 */
         @media (max-width: 768px) {
             body {
                 padding: 10px;
@@ -616,6 +624,7 @@
             </tr>
         </thead>
         <tbody>
+            <!-- 数据将通过JavaScript动态填充 -->
         </tbody>
     </table>
 
@@ -624,6 +633,7 @@
             <span class="close">&times;</span>
             <h2 id="modalTitle">BIN详情</h2>
             <div id="modalContent">
+                <!-- 详情内容将通过JavaScript动态填充 -->
             </div>
         </div>
     </div>
@@ -635,12 +645,12 @@
     const IINAPI_KEY = "MlIDgiUwEvuMWgK6ok4h9msL9O7DsZm0";
     const BACKUP_API_URL = "https://api.freebinchecker.com/bin/";
     
-    // 数据容器
+    // 数据
     let records = [];
     let metaCache = {};
     let currentStatus = '';
     let sortConfig = { key: null, direction: 'asc' };
-
+    
     // 卡组织图标
     const schemeIcons = {
         'VISA': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/2560px-Visa_Inc._logo.svg.png',
@@ -656,7 +666,10 @@
     window.supabase = supabase.createClient(
         'https://irhbelntvsjotztnqwnv.supabase.co',
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlyaGJlbG50dnNqb3R6dG5xd252Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3NjA2NDYsImV4cCI6MjA2MjMzNjY0Nn0.ZNx-7eQp9BcViuA1xdwflsFqX5R3ByfLcbOHPNrloa8',
-        { db: { schema: 'public' }, auth: { persistSession: false } }
+        {
+            db: { schema: 'public' },
+            auth: { persistSession: false }
+        }
     );
 
     // 测试数据库连接
@@ -675,7 +688,7 @@
         }
     }
 
-    // 检查连接状态
+    // 检查连接状态并显示UI反馈
     async function checkConnection() {
         const statusEl = document.getElementById('connectionStatus');
         try {
@@ -697,14 +710,16 @@
         }
     }
 
-    // 检查并修复表结构
+    // 检查并修复表结构（最终稳定版）
     async function checkAndFixTableStructure() {
         try {
+            // 方法1：直接查询（最可靠方式）
             const { data, error } = await window.supabase
                 .from('bin_records')
                 .select('bin')
                 .limit(1);
 
+            // 方法2：如果方法1失败，使用RPC验证
             if (error || !data) {
                 const { data: valid, error: validError } = await window.supabase
                     .rpc('validate_table_structure');
@@ -724,6 +739,7 @@
                     if (repairError) throw repairError;
                 }
             }
+
             return true;
         } catch (error) {
             console.error('[DB] 最终错误:', error);
@@ -734,12 +750,14 @@
     // 加载记录
     async function loadRecords() {
         try {
+            // 1. 加载主记录
             const { data, error } = await window.supabase
                 .from('bin_records')
                 .select('*');
             
             if (error) throw error;
             
+            // 2. 字段兼容处理
             records = (data || []).map(record => ({
                 ...record,
                 bank_name: record.bank_name || '未知',
@@ -751,6 +769,7 @@
                 created_at: record.created_at || new Date().toISOString()
             }));
             
+            // 3. 加载元数据
             const { data: metaData } = await window.supabase
                 .from('bin_metadata')
                 .select('*');
@@ -791,6 +810,14 @@
         }, 3000);
     }
 
+    // 显示错误对话框
+    function showErrorDialog(content) {
+        const dialog = document.createElement('div');
+        dialog.className = 'error-dialog';
+        dialog.innerHTML = content;
+        document.body.appendChild(dialog);
+    }
+
     // 初始化状态按钮
     function initStatusButtons() {
         document.querySelectorAll('.statusBtn').forEach(btn => {
@@ -802,364 +829,430 @@
         });
     }
 
-    // 初始化表单提交
-    function initForm() {
-        document.getElementById('entryForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const bin = document.getElementById('binInput').value.trim();
-            if (!/^\d{6}$/.test(bin)) {
-                showToast('请输入6位数字BIN', true);
-                return;
+    // 从任意格式提取BIN
+    function extractBin(input) {
+        if (!input) return '';
+        // 移除所有非数字字符
+        const digits = input.replace(/\D/g, '');
+        // 取前6位
+        return digits.substring(0, 6);
+    }
+
+    // 从备注中提取金额
+    function extractAmountFromNote(note) {
+        if (!note) return null;
+        
+        // 匹配中文动词+数字+刀/元等
+        const amountMatch = note.match(/(出|进|打了|到|支付|付|转|转出|转入)\s*(\d+(?:\.\d+)?)\s*(刀|元|人民币|USD|CNY)/i);
+        if (amountMatch && amountMatch[2]) {
+            const amount = parseFloat(amountMatch[2]);
+            if (confirm(`这张卡${amountMatch[1]}了${amount}${amountMatch[3]}是吗？`)) {
+                return amount;
+            }
+        }
+        return null;
+    }
+
+    // 处理输入自动填充
+    function setupInputAutoFill() {
+        const binInput = document.getElementById('binInput');
+        const noteInput = document.getElementById('noteInput');
+        const amountInput = document.getElementById('amountInput');
+        
+        // BIN输入变化时自动提取
+        binInput.addEventListener('input', function() {
+            const bin = extractBin(this.value);
+            if (bin && bin.length === 6) {
+                this.value = bin;
+            }
+        });
+        
+        // 备注输入变化时检查是否有BIN和金额
+        noteInput.addEventListener('input', function() {
+            // 检查是否有BIN可以提取
+            const possibleBin = extractBin(this.value);
+            if (possibleBin.length === 6 && !document.getElementById('binInput').value) {
+                document.getElementById('binInput').value = possibleBin;
+                // 移除备注中的数字部分
+                this.value = this.value.replace(/\d/g, '').replace(/\s+/g, ' ').trim();
             }
             
-            if (!currentStatus) {
-                showToast('请选择状态', true);
-                return;
-            }
-            
-            const operator = document.getElementById('operatorInput').value.trim() || '匿名';
-            const note = document.getElementById('noteInput').value.trim();
-            const amount = document.getElementById('amountInput').value.trim();
-            
-            const newRecord = {
-                bin,
-                status: currentStatus,
-                bank_name: '查询中...',
-                card_type: '查询中...',
-                operator,
-                note,
-                ...(amount && { amount }),
-                created_at: new Date().toISOString(),
-                scheme: '查询中...',
-                brand: '查询中...',
-                risk_desc: '查询中...',
-                risk_note: ''
-            };
-            
-            try {
-                records.push(newRecord);
-                updateTable();
-                showToast('正在保存记录...');
-                
-                const meta = await fetchMetadata(bin, true);
-                Object.assign(newRecord, {
-                    bank_name: meta.bankName,
-                    card_type: meta.cardType,
-                    scheme: meta.scheme,
-                    brand: meta.brand,
-                    risk_desc: meta.riskDesc
-                });
-                
-                await saveRecords();
-                this.reset();
-                currentStatus = '';
-                document.querySelectorAll('.statusBtn').forEach(b => b.classList.remove('active'));
-            } catch (error) {
-                records = records.filter(r => r !== newRecord);
-                updateTable();
-                showToast(`提交失败: ${error.message}`, true);
+            // 检查是否有金额可以提取
+            const amount = extractAmountFromNote(this.value);
+            if (amount !== null && !document.getElementById('amountInput').value) {
+                document.getElementById('amountInput').value = amount;
             }
         });
     }
+                // 更新表格数据
+        function updateTable() {
+            const tbody = document.querySelector('#dataTable tbody');
+            tbody.innerHTML = '';
 
-    // 获取元数据
-    async function fetchMetadata(bin, saveToCache = true) {
-        if (metaCache[bin]) return metaCache[bin];
+            // 按当前排序配置排序记录
+            const sortedRecords = [...records].sort((a, b) => {
+                if (sortConfig.key === 'successRate') {
+                    const rateA = (a.success || 0) / ((a.success || 0) + (a.fail || 0) + (a.warning || 0)) || 0;
+                    const rateB = (b.success || 0) / ((b.success || 0) + (b.fail || 0) + (b.warning || 0)) || 0;
+                    return sortConfig.direction === 'asc' ? rateA - rateB : rateB - rateA;
+                }
+                
+                const valueA = a[sortConfig.key] || '';
+                const valueB = b[sortConfig.key] || '';
+                return sortConfig.direction === 'asc' 
+                    ? String(valueA).localeCompare(String(valueB))
+                    : String(valueB).localeCompare(String(valueA));
+            });
 
-        const tempResult = document.getElementById('tempResult');
-        tempResult.innerHTML = '<span class="loading">正在查询BIN信息...</span>';
+            // 填充表格行
+            sortedRecords.forEach(record => {
+                const tr = document.createElement('tr');
+                
+                // 计算成功率
+                const total = (record.success || 0) + (record.fail || 0) + (record.warning || 0);
+                const successRate = total > 0 
+                    ? Math.round((record.success / total) * 100) + '%' 
+                    : '0%';
 
-        try {
-            let response = await fetch(`https://api.iinapi.com/iin?key=${IINAPI_KEY}&digits=${bin}`);
-            let data = await response.json();
+                // 卡头列
+                const binTd = document.createElement('td');
+                const binLink = document.createElement('a');
+                binLink.href = '#';
+                binLink.className = 'bin-link';
+                binLink.textContent = record.bin;
+                binLink.addEventListener('click', () => showDetailModal(record.bin));
+                
+                const binCount = document.createElement('span');
+                binCount.className = 'bin-count';
+                binCount.textContent = total;
+                
+                binTd.appendChild(binLink);
+                binTd.appendChild(binCount);
+                tr.appendChild(binTd);
+
+                // 银行列
+                const bankTd = document.createElement('td');
+                bankTd.textContent = record.bank_name;
+                tr.appendChild(bankTd);
+
+                // 卡类型列
+                const cardTypeTd = document.createElement('td');
+                cardTypeTd.textContent = record.card_type;
+                tr.appendChild(cardTypeTd);
+
+                // 卡组织列
+                const schemeTd = document.createElement('td');
+                if (schemeIcons[record.scheme]) {
+                    const icon = document.createElement('img');
+                    icon.src = schemeIcons[record.scheme];
+                    icon.className = 'scheme-icon';
+                    icon.alt = record.scheme;
+                    schemeTd.appendChild(icon);
+                }
+                schemeTd.appendChild(document.createTextNode(record.scheme));
+                tr.appendChild(schemeTd);
+
+                // 品牌列
+                const brandTd = document.createElement('td');
+                brandTd.textContent = record.brand;
+                tr.appendChild(brandTd);
+
+                // 地区列
+                const riskTd = document.createElement('td');
+                riskTd.textContent = record.risk_desc;
+                tr.appendChild(riskTd);
+
+                // 成功数列
+                const successTd = document.createElement('td');
+                successTd.className = 'success-count';
+                successTd.textContent = record.success || 0;
+                tr.appendChild(successTd);
+
+                // 失败数列
+                const failTd = document.createElement('td');
+                failTd.className = 'fail-count';
+                failTd.textContent = record.fail || 0;
+                tr.appendChild(failTd);
+
+                // 异常数列
+                const warningTd = document.createElement('td');
+                warningTd.className = 'warning-count';
+                warningTd.textContent = record.warning || 0;
+                tr.appendChild(warningTd);
+
+                // 成功率列
+                const rateTd = document.createElement('td');
+                rateTd.className = 'success-rate';
+                rateTd.textContent = successRate;
+                tr.appendChild(rateTd);
+
+                // 风控备注列
+                const noteTd = document.createElement('td');
+                noteTd.textContent = record.risk_note || '';
+                tr.appendChild(noteTd);
+
+                tbody.appendChild(tr);
+            });
+
+            // 更新BIN计数
+            updateBinCount();
+        }
+
+        // 更新BIN计数显示
+        function updateBinCount() {
+            const uniqueBins = new Set(records.map(r => r.bin)).size;
+            document.getElementById('binCountInfo').textContent = `已记录 ${uniqueBins} 个BIN`;
+        }
+
+        // 初始化表格排序
+        function initTableSorting() {
+            document.querySelectorAll('#dataTable th[data-sort]').forEach(th => {
+                th.addEventListener('click', () => {
+                    const key = th.dataset.sort;
+                    if (sortConfig.key === key) {
+                        sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        sortConfig.key = key;
+                        sortConfig.direction = 'asc';
+                    }
+                    
+                    // 更新排序指示器
+                    document.querySelectorAll('#dataTable th').forEach(h => {
+                        h.classList.remove('sort-asc', 'sort-desc');
+                    });
+                    th.classList.add(`sort-${sortConfig.direction}`);
+                    
+                    updateTable();
+                });
+            });
+        }
+
+        // 初始化搜索功能
+        function initSearch() {
+            const searchInput = document.getElementById('searchInput');
+            const searchResult = document.getElementById('tempSearchResult');
             
-            if (!data.valid) {
-                response = await fetch(`${BACKUP_API_URL}${bin}`);
-                data = await response.json();
-                if (!data.valid) throw new Error('无效的BIN数据');
+            searchInput.addEventListener('input', () => {
+                const query = searchInput.value.trim().toLowerCase();
+                if (query.length < 3) {
+                    searchResult.style.display = 'none';
+                    return;
+                }
+                
+                // 搜索BIN、银行、卡类型、卡组织、地区
+                const results = records.filter(r => 
+                    r.bin.includes(query) ||
+                    r.bank_name.toLowerCase().includes(query) ||
+                    r.card_type.toLowerCase().includes(query) ||
+                    r.scheme.toLowerCase().includes(query) ||
+                    r.risk_desc.toLowerCase().includes(query)
+                );
+                
+                if (results.length > 0) {
+                    searchResult.innerHTML = results.slice(0, 5).map(r => `
+                        <div class="search-result-item">
+                            <span class="search-result-label">BIN:</span> ${r.bin}
+                            <span class="search-result-label">银行:</span> ${r.bank_name}
+                            <span class="search-result-label">卡类型:</span> ${r.card_type}
+                            <span class="search-result-label">卡组织:</span> ${r.scheme}
+                            <span class="search-result-label">地区:</span> ${r.risk_desc}
+                        </div>
+                    `).join('');
+                    searchResult.style.display = 'block';
+                } else {
+                    searchResult.innerHTML = '<div class="search-result-item">没有找到匹配的BIN</div>';
+                    searchResult.style.display = 'block';
+                }
+            });
+            
+            // 点击搜索结果外的区域关闭搜索结果
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !searchResult.contains(e.target)) {
+                    searchResult.style.display = 'none';
+                }
+            });
+        }
+
+        // 显示详情模态框
+        async function showDetailModal(bin) {
+            const modal = document.getElementById('detailModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalContent = document.getElementById('modalContent');
+            
+            modalTitle.textContent = `BIN详情 - ${bin}`;
+            
+            // 获取该BIN的所有记录
+            const { data: detailRecords, error } = await window.supabase
+                .from('bin_records')
+                .select('*')
+                .eq('bin', bin)
+                .order('created_at', { ascending: false });
+            
+            if (error) {
+                modalContent.innerHTML = `<p class="error">加载详情失败: ${error.message}</p>`;
+                modal.style.display = 'block';
+                return;
             }
-
-            const result = {
-                bankName: data.issuer?.name || '未知银行',
-                cardType: data.card?.type === 'credit' ? '信用卡' : '借记卡',
-                scheme: data.card?.scheme || '未知',
-                brand: data.card?.brand || '标准卡',
-                riskDesc: data.country?.name ? `${data.country.name} (${data.country.alpha2})` : '未知国家'
-            };
-
-            if (saveToCache) {
-                metaCache[bin] = result;
-                await window.supabase
-                    .from('bin_metadata')
-                    .upsert({ bin, data: result }, { onConflict: 'bin' });
-            }
-
-            tempResult.innerHTML = '查询完成';
-            return result;
-
-        } catch (error) {
-            console.error('BIN查询失败:', error);
-            tempResult.innerHTML = `查询失败: ${error.message}`;
-            return {
-                bankName: '查询失败',
+            
+            // 获取元数据
+            const meta = metaCache[bin] || await fetchMetadata(bin, false) || {
+                bankName: '未知',
                 cardType: '未知',
                 scheme: '未知',
                 brand: '未知',
-                riskDesc: error.message
-            };
-        }
-    }
-
-    // 初始化搜索
-    function initSearch() {
-        const searchInput = document.getElementById('searchInput');
-        searchInput.addEventListener('input', function() {
-            const keyword = this.value.trim();
-            if (!keyword) {
-                updateTable();
-                document.getElementById('tempSearchResult').style.display = 'none';
-                return;
-            }
-            
-            if (keyword.length === 6 && /^\d+$/.test(keyword)) {
-                searchBin(keyword);
-            } else {
-                const filtered = records.filter(r => 
-                    r.bin.includes(keyword) || 
-                    (r.bank_name && r.bank_name.toLowerCase().includes(keyword.toLowerCase())) ||
-                    (r.scheme && r.scheme.toLowerCase().includes(keyword.toLowerCase()))
-                );
-                updateTable(filtered);
-                document.getElementById('tempSearchResult').style.display = 'none';
-            }
-        });
-    }
-
-    // 初始化表格排序
-    function initTableSorting() {
-        document.querySelectorAll('#dataTable th[data-sort]').forEach(th => {
-            th.addEventListener('click', function() {
-                const key = this.getAttribute('data-sort');
-                sortConfig.direction = sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc';
-                sortConfig.key = key;
-                
-                document.querySelectorAll('#dataTable th').forEach(h => 
-                    h.classList.remove('sort-asc', 'sort-desc')
-                );
-                this.classList.add(`sort-${sortConfig.direction}`);
-                
-                sortRecords();
-                updateTable();
-            });
-        });
-    }
-
-    // 排序记录
-    function sortRecords() {
-        if (!sortConfig.key) return;
-        
-        records.sort((a, b) => {
-            let valA, valB;
-            
-            switch(sortConfig.key) {
-                case 'successRate': 
-                    valA = (a.stats?.success || 0) / ((a.stats?.success || 0) + (a.stats?.fail || 0) + (a.stats?.warning || 0)) || 0;
-                    valB = (b.stats?.success || 0) / ((b.stats?.success || 0) + (b.stats?.fail || 0) + (b.stats?.warning || 0)) || 0;
-                    break;
-                default: 
-                    valA = a[sortConfig.key];
-                    valB = b[sortConfig.key];
-            }
-            
-            return sortConfig.direction === 'asc' ? 
-                   (valA < valB ? -1 : valA > valB ? 1 : 0) :
-                   (valA > valB ? -1 : valA < valB ? 1 : 0);
-        });
-    }
-
-    // 更新表格
-    function updateTable(data = records) {
-        const tbody = document.querySelector('#dataTable tbody');
-        tbody.innerHTML = '';
-        
-        const uniqueBins = [...new Set(data.map(r => r.bin))];
-        uniqueBins.forEach(bin => {
-            const binRecords = data.filter(r => r.bin === bin);
-            const latestRecord = binRecords.reduce((latest, current) => 
-                new Date(current.created_at) > new Date(latest.created_at) ? current : latest);
-            
-            const stats = {
-                success: binRecords.filter(r => r.status === '成功').length,
-                fail: binRecords.filter(r => r.status === '失败').length,
-                warning: binRecords.filter(r => r.status === '异常').length
+                riskDesc: '未知'
             };
             
-            const successRate = stats.success + stats.fail + stats.warning > 0 ?
-                `${Math.round((stats.success / (stats.success + stats.fail + stats.warning)) * 100}%` : '0%';
-            
-            const schemeIcon = schemeIcons[latestRecord.scheme] ? 
-                `<img src="${schemeIcons[latestRecord.scheme]}" class="scheme-icon" alt="${latestRecord.scheme}">` : '';
-            
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>
-                    <div class="bin-link-container">
-                        <a href="javascript:void(0)" class="bin-link" onclick="showBinDetails('${bin}')">${bin}</a>
-                        <span class="bin-count">${binRecords.length}</span>
+            // 构建详情内容
+            modalContent.innerHTML = `
+                <div class="bank-info-card">
+                    <div class="bank-info-left">
+                        <div class="bank-info-item">
+                            <span class="bank-info-label">银行:</span>
+                            <span class="bank-info-value">${meta.bankName}</span>
+                        </div>
+                        <div class="bank-info-item">
+                            <span class="bank-info-label">卡组织:</span>
+                            <span class="bank-info-value">${meta.scheme}</span>
+                        </div>
+                        <div class="bank-info-item">
+                            <span class="bank-info-label">卡类型:</span>
+                            <span class="bank-info-value">${meta.cardType}</span>
+                        </div>
+                        <div class="bank-info-item">
+                            <span class="bank-info-label">地区:</span>
+                            <span class="bank-info-value">${meta.riskDesc}</span>
+                        </div>
                     </div>
-                </td>
-                <td>${latestRecord.bank_name}</td>
-                <td>${latestRecord.card_type}</td>
-                <td>${schemeIcon}${latestRecord.scheme}</td>
-                <td>${latestRecord.brand}</td>
-                <td>${latestRecord.risk_desc}</td>
-                <td class="success-count">${stats.success}</td>
-                <td class="fail-count">${stats.fail}</td>
-                <td class="warning-count">${stats.warning}</td>
-                <td class="success-rate">${successRate}</td>
-                <td>
-                    <span class="risk-desc">${latestRecord.risk_note || '-'}</span>
-                    <button class="primary-btn" onclick="updateRiskNote('${bin}')" 
-                            style="padding: 3px 8px; font-size: 12px; margin-left: 5px;">更新</button>
-                </td>
+                    <div class="bank-info-right">
+                        <h3>风控备注</h3>
+                        <textarea class="bank-note-textarea" id="detailRiskNote">${detailRecords[0]?.risk_note || ''}</textarea>
+                        <button class="primary-btn" id="saveRiskNote">保存备注</button>
+                    </div>
+                </div>
+                <table class="detail-table">
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>状态</th>
+                            <th>操作人</th>
+                            <th>金额</th>
+                            <th>备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${detailRecords.map(r => `
+                            <tr>
+                                <td>${new Date(r.created_at).toLocaleString()}</td>
+                                <td>
+                                    <span class="status-badge ${r.status === '成功' ? 'success-badge' : 
+                                        r.status === '失败' ? 'fail-badge' : 'warning-badge'}">
+                                        ${r.status}
+                                    </span>
+                                </td>
+                                <td>${r.operator}</td>
+                                <td>${r.amount || '-'}</td>
+                                <td>${r.note || '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
             `;
-            tbody.appendChild(row);
-        });
-    }
-
-    // 保存记录
-    async function saveRecords() {
-        const saveBtn = document.getElementById('saveBtn');
-        try {
-            saveBtn.disabled = true;
-            saveBtn.textContent = '保存中...';
-
-            const batchSize = 10;
-            for (let i = 0; i < records.length; i += batchSize) {
-                const batch = records.slice(i, i + batchSize);
-                
-                const recordsToSave = batch.map(record => ({
-                    bin: record.bin.padStart(6, '0').slice(0, 6),
-                    status: record.status,
-                    bank_name: record.bank_name || '未知银行',
-                    card_type: record.card_type || '未知类型',
-                    operator: record.operator || '匿名用户',
-                    note: record.note || '',
-                    created_at: record.created_at || new Date().toISOString(),
-                    scheme: record.scheme || '未知组织',
-                    brand: record.brand || '标准卡',
-                    risk_desc: record.risk_desc || '未知风险',
-                    risk_note: record.risk_note || '',
-                    ...(record.amount && { amount: parseFloat(record.amount) })
-                }));
-
-                const { error } = await window.supabase
-                    .from('bin_records')
-                    .upsert(recordsToSave, { 
-                        onConflict: 'bin,created_at',
-                        returning: 'minimal'
+            
+            // 初始化保存备注按钮
+            document.getElementById('saveRiskNote').addEventListener('click', async () => {
+                const note = document.getElementById('detailRiskNote').value;
+                try {
+                    await window.supabase
+                        .from('bin_records')
+                        .update({ risk_note: note })
+                        .eq('bin', bin);
+                    
+                    // 更新本地记录
+                    records.forEach(r => {
+                        if (r.bin === bin) {
+                            r.risk_note = note;
+                        }
                     });
-
-                if (error) throw error;
-            }
+                    
+                    showToast('备注保存成功');
+                    updateTable();
+                } catch (error) {
+                    showToast('保存备注失败', true);
+                    console.error('保存备注失败:', error);
+                }
+            });
             
-            updateTable();
-            showToast('保存成功！');
-        } catch (error) {
-            console.error('保存失败:', error);
-            let errorMsg = error.message;
-            if (error.code === '42P10') {
-                errorMsg = '数据库表缺少唯一约束，请联系管理员';
-            } else if (error.code === '23505') {
-                errorMsg = '数据已存在，无需重复添加';
-            } else if (error.message.includes('network')) {
-                errorMsg = '网络连接失败，请检查网络后重试';
-            }
+            modal.style.display = 'block';
             
-            showToast(`保存失败: ${errorMsg}`, true);
-            throw error;
-        } finally {
-            saveBtn.disabled = false;
-            saveBtn.textContent = '添加记录';
+            // 关闭按钮事件
+            document.querySelector('#detailModal .close').addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+            
+            // 点击模态框外部关闭
+            window.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
         }
-    }
-
-    // 初始化文件上传
-    function initFileUpload() {
-        document.getElementById('fileUpload').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = XLSX.utils.sheet_to_json(sheet);
-
-                const converted = jsonData.map(item => ({
-                    bin: String(item.BIN).substring(0,6),
-                    status: item.状态,
-                    operator: item.操作人,
-                    amount: item.金额,
-                    note: item.备注,
-                    created_at: new Date().toISOString()
-                }));
-
-                records.push(...converted);
-                saveRecords();
-                showToast(`成功导入${converted.length}条记录`);
-            };
-            reader.readAsArrayBuffer(file);
-        });
-    }
-
-    // 主初始化
-    async function initializeApp() {
-        try {
-            document.getElementById('binCountInfo').textContent = '初始化中...';
-            await checkConnection();
-            await checkAndFixTableStructure();
-            await loadRecords();
-            
-            initStatusButtons();
-            initForm();
-            initSearch();
-            initTableSorting();
-            initFileUpload();
-            
-            updateTable();
-            updateBinCount();
-            
-        } catch (error) {
-            console.error('初始化失败:', error);
-            document.getElementById('binCountInfo').textContent = '初始化失败';
-            
-            const errorContent = `
-                <h3>系统初始化失败</h3>
-                <p>${error.message}</p>
-                <p>可能原因：</p>
-                <ul>
-                    <li>数据库表结构问题</li>
-                    <li>网络连接问题</li>
-                    <li>权限不足</li>
-                </ul>
-                <button class="primary-btn" onclick="location.reload()">重试</button>
-                <button class="secondary-btn" onclick="resetDatabase()" style="margin-left:10px;">重置数据库</button>
-            `;
-            showErrorDialog(errorContent);
+                // 主初始化函数
+        async function initializeApp() {
+            try {
+                // 显示加载状态
+                document.getElementById('binCountInfo').textContent = '初始化中...';
+                
+                // 1. 检查连接
+                await checkConnection();
+                
+                // 2. 检查并修复表结构
+                await checkAndFixTableStructure();
+                
+                // 3. 加载数据
+                await loadRecords();
+                
+                // 4. 初始化UI组件
+                initStatusButtons();
+                initForm();
+                initSearch();
+                initTableSorting();
+                initModal();
+                initFileUpload();
+                initBinInputAutoDetect();
+                
+                // 5. 更新视图
+                updateTable();
+                updateBinCount();
+                
+            } catch (error) {
+                console.error('初始化失败:', error);
+                document.getElementById('binCountInfo').textContent = '初始化失败';
+                
+                showErrorDialog(`
+                    <h3>系统初始化失败</h3>
+                    <p>${error.message}</p>
+                    <p>可能原因：</p>
+                    <ul>
+                        <li>数据库表结构问题</li>
+                        <li>网络连接问题</li>
+                        <li>权限不足</li>
+                    </ul>
+                    <button class="primary-btn" onclick="location.reload()">重试</button>
+                    <button class="secondary-btn" onclick="resetDatabase()" style="margin-left:10px;">重置数据库</button>
+                `);
+            }
         }
-    }
 
-    // 全局函数
-    window.showBinDetails = showBinDetails;
-    window.deleteRecord = deleteRecord;
-    window.updateRiskNote = updateRiskNote;
-    window.resetDatabase = resetDatabase;
+        // 全局函数导出
+        window.showBinDetails = showBinDetails;
+        window.deleteRecord = deleteRecord;
+        window.updateRiskNote = updateRiskNote;
+        window.resetDatabase = resetDatabase;
+        window.saveBankNote = saveBankNote;
 
-    // 启动应用
-    document.addEventListener('DOMContentLoaded', initializeApp);
+        // 启动应用
+        document.addEventListener('DOMContentLoaded', initializeApp);
     </script>
 </body>
 </html>
